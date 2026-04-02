@@ -87,4 +87,9 @@ namespace vk::core
 	{
 		return m_presentQueue;
 	}
+
+	const std::shared_ptr<PhysicalDevice>& Device::getPhysicalDevice() const
+	{
+		return m_physicalDevice;
+	}
 }

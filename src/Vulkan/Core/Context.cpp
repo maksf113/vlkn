@@ -28,8 +28,9 @@ namespace vk::core
 
 		m_vkInstance = std::make_shared<Instance>(m_instanceConfig);
 		m_debugMessenger = std::make_unique<DebugMessenger>(m_vkInstance);
-		m_surface = std::make_unique<Surface>(m_vkInstance, m_window);
+		m_surface = std::make_shared<Surface>(m_vkInstance, m_window);
 		m_physicalDevice = std::make_shared<PhysicalDevice>(m_vkInstance, m_surface);
-		m_device = std::make_unique<Device>(m_physicalDevice);
+		m_device = std::make_shared<Device>(m_physicalDevice);
+		m_swapChain = std::make_shared<SwapChain>(m_device, m_surface, m_window);
 	}
 }

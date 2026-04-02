@@ -4,6 +4,7 @@
 #include "Vulkan/Core/Surface.hpp"
 #include "Vulkan/Core/PhysicalDevice.hpp"
 #include "Vulkan/Core/Device.hpp"
+#include "Vulkan/Core/SwapChain.hpp"
 #include "Window/Window.hpp"
 
 #include <memory>
@@ -20,9 +21,10 @@ namespace vk::core
 		std::shared_ptr<Instance> m_vkInstance;
 		std::unique_ptr<DebugMessenger> m_debugMessenger;
 		std::shared_ptr<Window> m_window;
-		std::unique_ptr<Surface> m_surface;
+		std::shared_ptr<Surface> m_surface;
 		std::shared_ptr<PhysicalDevice> m_physicalDevice;
-		std::unique_ptr<Device> m_device;
+		std::shared_ptr<Device> m_device;
+		std::shared_ptr<SwapChain> m_swapChain;
 	public:
 		Context(std::string_view name, std::shared_ptr<Window>& window);
 		Context(const Context&) = delete;

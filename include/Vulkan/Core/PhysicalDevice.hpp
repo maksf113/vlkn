@@ -19,6 +19,13 @@ namespace vk::core
 		}
 	};
 
+	struct SwapChainSupportDetails
+	{
+		VkSurfaceCapabilitiesKHR capabilities;
+		std::vector<VkSurfaceFormatKHR> formats;
+		std::vector<VkPresentModeKHR> presentModes;
+	};
+
 	class PhysicalDevice
 	{
 	private:
@@ -28,7 +35,7 @@ namespace vk::core
 		VkPhysicalDeviceFeatures m_features;
 
 	public:
-		PhysicalDevice(const std::shared_ptr<Instance>& instance, const std::unique_ptr<Surface>& surface);
+		PhysicalDevice(const std::shared_ptr<Instance>& instance, const std::shared_ptr<Surface>& surface);
 		PhysicalDevice(const PhysicalDevice&) = delete;
 		PhysicalDevice& operator=(const PhysicalDevice&) = delete;
 		PhysicalDevice(PhysicalDevice&& other) noexcept;
@@ -41,11 +48,12 @@ namespace vk::core
 		const QueueFamilyIndices& getQueueFamilyIndices() const;
 		const VkPhysicalDeviceProperties& getProperties() const;
 		const VkPhysicalDeviceFeatures& getFeatures() const;
+		SwapChainSupportDetails querySwapChainSupport(const std::shared_ptr<Surface>& surface) const;
 
 	private:
-		void pickPhysicalDevice(const std::shared_ptr<Instance>& instance, const std::unique_ptr<Surface>& surface);
-		bool isDeviceSuitable(VkPhysicalDevice device, const std::unique_ptr<Surface>& surface);
+		void pickPhysicalDevice(const std::shared_ptr<Instance>& instance, const std::shared_ptr<Surface>& surface);
+		bool isDeviceSuitable(VkPhysicalDevice device, const std::shared_ptr<Surface>& surface);
 		bool isDeviceDiscreteGpu(VkPhysicalDevice device);
-		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, const std::unique_ptr<Surface>& surface);
+		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, const std::shared_ptr<Surface>& surface);
 	};
 }

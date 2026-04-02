@@ -27,5 +27,6 @@ namespace vk::core
 		operator VkDevice() const;
 		VkQueue getGraphicsQueue() const;
 		VkQueue getPresentQueue() const;
+		const std::shared_ptr<PhysicalDevice>& getPhysicalDevice() const;
 	};
 }
