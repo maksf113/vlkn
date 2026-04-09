@@ -35,7 +35,7 @@ namespace vk::core
 	}
 
 	ImageView::ImageView(ImageView&& other) noexcept :
-		m_handle(other.m_handle), m_device(std::move(other.m_device))
+		m_handle(other.m_handle), m_device(std::move(other.m_device)), m_format(other.m_format)
 	{
 		other.m_handle = VK_NULL_HANDLE;
 	}

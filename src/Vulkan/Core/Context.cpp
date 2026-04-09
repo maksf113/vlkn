@@ -33,4 +33,14 @@ namespace vk::core
 		m_device = std::make_shared<Device>(m_physicalDevice);
 		m_swapChain = std::make_shared<SwapChain>(m_device, m_surface, m_window);
 	}
+
+	const std::shared_ptr<Device>& Context::getDevice() const
+	{
+		return m_device;
+	}
+
+	const std::shared_ptr<SwapChain>& Context::getSwapChain() const
+	{
+		return m_swapChain;
+	}
 }

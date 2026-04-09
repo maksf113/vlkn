@@ -32,5 +32,8 @@ namespace vk::core
 		Context(Context&& other) noexcept = default;
 		Context& operator=(Context&& other) noexcept = default;
 		~Context() = default;
+
+		const std::shared_ptr<Device>& getDevice() const;
+		const std::shared_ptr<SwapChain>& getSwapChain() const;
 	};
 }

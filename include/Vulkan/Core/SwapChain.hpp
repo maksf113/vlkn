@@ -3,6 +3,8 @@
 #include "Vulkan/Core/PhysicalDevice.hpp"
 #include "Vulkan/Core/Device.hpp"
 #include "Vulkan/Core/ImageView.hpp"
+#include "Vulkan/Core/Framebuffer.hpp"
+#include "Vulkan/Core/RenderPass.hpp"
 #include "Window/Window.hpp"
 
 #include <Vulkan/vulkan.h>
@@ -22,6 +24,8 @@ namespace vk::core
 		std::shared_ptr<Surface> m_surface;
 		std::vector<VkImage> m_images;
 		std::vector<ImageView> m_imageViews;
+		std::unique_ptr<RenderPass> m_renderPass;
+		std::vector<Framebuffer> m_framebuffers;
 
 	public:
 		SwapChain(const std::shared_ptr<Device>& device, const std::shared_ptr<Surface>& surface, const std::shared_ptr<Window>& window);
@@ -32,11 +36,17 @@ namespace vk::core
 		~SwapChain();
 		VkSwapchainKHR get() const;
 		operator VkSwapchainKHR() const;
+		VkFormat getImageFormat() const;
+
+		const RenderPass& getRenderPass() const;
+		const std::vector<Framebuffer>& getFramebuffers() const;
+		VkExtent2D getExtent() const;
 
 	private:
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, const std::shared_ptr<Window>& window);
 		void createImageViews();
+		void createFramebuffers();
 	};
 }

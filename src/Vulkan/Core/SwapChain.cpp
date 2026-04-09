@@ -64,6 +64,8 @@ namespace vk::core
 		vkGetSwapchainImagesKHR(*m_device, m_handle, &imageCount, m_images.data());
 
 		createImageViews();
+		m_renderPass = std::make_unique<RenderPass>(m_device, m_imageFormat);
+		createFramebuffers();
 	}
 
 	SwapChain::SwapChain(SwapChain&& other) noexcept :
@@ -103,6 +105,26 @@ namespace vk::core
 	SwapChain::operator VkSwapchainKHR() const
 	{
 		return m_handle;
+	}
+
+	VkFormat SwapChain::getImageFormat() const
+	{
+		return m_imageFormat;
+	}
+
+	const RenderPass& SwapChain::getRenderPass() const
+	{
+		return *m_renderPass;
+	}
+
+	const std::vector<Framebuffer>& SwapChain::getFramebuffers() const
+	{
+		return m_framebuffers;
+	}
+
+	VkExtent2D SwapChain::getExtent() const
+	{
+		return m_extent;
 	}
 
 	VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
@@ -154,6 +176,16 @@ namespace vk::core
 		for (const auto& image : m_images)
 		{
 			m_imageViews.emplace_back(m_device, image, m_imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+		}
+	}
+
+	void SwapChain::createFramebuffers()
+	{
+		m_framebuffers.reserve(m_imageViews.size());
+		for (const auto& imageView : m_imageViews)
+		{
+			std::vector<VkImageView> attachments = { imageView.get() };
+			m_framebuffers.emplace_back(m_device, *m_renderPass, attachments, m_extent);
 		}
 	}
 }
