@@ -31,7 +31,6 @@ namespace vk::core
 		m_surface = std::make_shared<Surface>(m_vkInstance, m_window);
 		m_physicalDevice = std::make_shared<PhysicalDevice>(m_vkInstance, m_surface);
 		m_device = std::make_shared<Device>(m_physicalDevice);
-		m_swapChain = std::make_shared<SwapChain>(m_device, m_surface, m_window);
 	}
 
 	const std::shared_ptr<Device>& Context::getDevice() const
@@ -39,8 +38,13 @@ namespace vk::core
 		return m_device;
 	}
 
-	const std::shared_ptr<SwapChain>& Context::getSwapChain() const
+	const std::shared_ptr<Window>& Context::getWindow() const
 	{
-		return m_swapChain;
+		return m_window;
+	}	
+
+	const std::shared_ptr<Surface>& Context::getSurface() const
+	{
+		return m_surface;
 	}
 }

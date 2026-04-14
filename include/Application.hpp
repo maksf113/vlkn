@@ -3,11 +3,14 @@
 #include "Vulkan/Core/CommandPool.hpp"
 #include "Vulkan/Core/Semaphore.hpp"
 #include "Vulkan/Core/Fence.hpp"
+#include "Vulkan/Core/RenderPass.hpp"
+#include "Vulkan/Core/SwapChain.hpp"
 #include "Window/GlfwInstance.hpp"
 #include "Window/Window.hpp"
 
 #include <string>
 #include <memory>
+#include <chrono>
 
 class Application
 {
@@ -20,6 +23,8 @@ private:
 	uint32_t m_currentFrame = 0;
 	std::unique_ptr<vk::core::CommandPool> m_commandPool;
 	std::vector<VkCommandBuffer> m_commandBuffers;
+	std::shared_ptr<vk::core::SwapChain> m_swapChain;
+	std::unique_ptr<vk::core::RenderPass> m_renderPass;
 	std::vector<vk::core::Semaphore> m_imageAvailableSemaphores;
 	std::vector<vk::core::Semaphore> m_renderFinishedSemaphores;
 	std::vector<vk::core::Fence> m_inFlightFences;

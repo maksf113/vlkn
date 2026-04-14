@@ -3,6 +3,7 @@
 #include <vector>
 #include <stdexcept>
 #include <memory>
+#include <iostream>
 
 namespace vk::core
 {
@@ -64,14 +65,13 @@ namespace vk::core
 		vkGetSwapchainImagesKHR(*m_device, m_handle, &imageCount, m_images.data());
 
 		createImageViews();
-		m_renderPass = std::make_unique<RenderPass>(m_device, m_imageFormat);
-		createFramebuffers();
 	}
 
 	SwapChain::SwapChain(SwapChain&& other) noexcept :
 		m_handle(other.m_handle), m_imageFormat(other.m_imageFormat), m_extent(other.m_extent),
 		m_device(std::move(other.m_device)), m_surface(std::move(other.m_surface)),
-		m_images(std::move(other.m_images)), m_imageViews(std::move(other.m_imageViews))
+		m_images(std::move(other.m_images)), m_imageViews(std::move(other.m_imageViews)),
+		m_framebuffers(std::move(other.m_framebuffers))
 	{
 		other.m_handle = VK_NULL_HANDLE;
 	}
@@ -85,6 +85,7 @@ namespace vk::core
 		m_surface = std::move(other.m_surface);
 		m_images = std::move(other.m_images);
 		m_imageViews = std::move(other.m_imageViews);
+		m_framebuffers = std::move(other.m_framebuffers);	
 		other.m_handle = VK_NULL_HANDLE;
 		return *this;
 	}
@@ -95,6 +96,20 @@ namespace vk::core
 		{
 			vkDestroySwapchainKHR(*m_device, m_handle, nullptr);
 		}
+	}
+
+	void SwapChain::recreate(const std::shared_ptr<Window>& window, const std::unique_ptr<RenderPass>& renderPass)
+	{
+		vkDeviceWaitIdle(*m_device);
+		m_images.clear();
+		m_imageViews.clear();
+		m_framebuffers.clear();
+		vkDestroySwapchainKHR(*m_device, m_handle, nullptr);
+		m_handle = VK_NULL_HANDLE;
+		SwapChain newSwapChain(m_device, m_surface, window);
+		newSwapChain.createFramebuffers(renderPass);
+		*this = std::move(newSwapChain);
+		std::cout << "SC recreation\n";
 	}
 
 	VkSwapchainKHR SwapChain::get() const
@@ -110,11 +125,6 @@ namespace vk::core
 	VkFormat SwapChain::getImageFormat() const
 	{
 		return m_imageFormat;
-	}
-
-	const RenderPass& SwapChain::getRenderPass() const
-	{
-		return *m_renderPass;
 	}
 
 	const std::vector<Framebuffer>& SwapChain::getFramebuffers() const
@@ -179,13 +189,14 @@ namespace vk::core
 		}
 	}
 
-	void SwapChain::createFramebuffers()
+	void SwapChain::createFramebuffers(const std::unique_ptr<RenderPass>& renderPass)
 	{
+		//Framebuffer(const std::shared_ptr<Device>&device, VkRenderPass renderPass, const std::vector<VkImageView>&attachments, VkExtent2D extent);
 		m_framebuffers.reserve(m_imageViews.size());
 		for (const auto& imageView : m_imageViews)
 		{
 			std::vector<VkImageView> attachments = { imageView.get() };
-			m_framebuffers.emplace_back(m_device, *m_renderPass, attachments, m_extent);
+			m_framebuffers.emplace_back(m_device, *renderPass, attachments, m_extent);
 		}
 	}
 }

@@ -24,7 +24,7 @@ namespace vk::core
 		std::shared_ptr<Surface> m_surface;
 		std::shared_ptr<PhysicalDevice> m_physicalDevice;
 		std::shared_ptr<Device> m_device;
-		std::shared_ptr<SwapChain> m_swapChain;
+		
 	public:
 		Context(std::string_view name, std::shared_ptr<Window>& window);
 		Context(const Context&) = delete;
@@ -34,6 +34,7 @@ namespace vk::core
 		~Context() = default;
 
 		const std::shared_ptr<Device>& getDevice() const;
-		const std::shared_ptr<SwapChain>& getSwapChain() const;
+		const std::shared_ptr<Surface>& getSurface() const;
+		const std::shared_ptr<Window>& getWindow() const;
 	};
 }

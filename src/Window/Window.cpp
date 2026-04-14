@@ -6,6 +6,7 @@ Window::Window(uint32_t width, uint32_t height, std::string_view title) :
     m_width(width), m_height(height), m_title(title)
 {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     m_handle = glfwCreateWindow(static_cast<int>(width), static_cast<int>(height), m_title.c_str(), nullptr, nullptr);
 }
 
@@ -63,3 +64,13 @@ uint32_t Window::height() const
 {
     return m_height;
 }
+
+void Window::setWidth(uint32_t width)
+{
+    m_width = width;
+}
+
+void Window::setHeight(uint32_t height)
+{
+    m_height = height;
+}   

@@ -28,4 +28,6 @@ public:
 	bool shouldClose() const;
 	uint32_t width() const;
 	uint32_t height() const;
+	void setWidth(uint32_t width);
+	void setHeight(uint32_t height);
 };

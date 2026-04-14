@@ -24,7 +24,6 @@ namespace vk::core
 		std::shared_ptr<Surface> m_surface;
 		std::vector<VkImage> m_images;
 		std::vector<ImageView> m_imageViews;
-		std::unique_ptr<RenderPass> m_renderPass;
 		std::vector<Framebuffer> m_framebuffers;
 
 	public:
@@ -34,11 +33,12 @@ namespace vk::core
 		SwapChain(SwapChain&& other) noexcept;
 		SwapChain& operator=(SwapChain&& other) noexcept;
 		~SwapChain();
+		void createFramebuffers(const std::unique_ptr<RenderPass>& renderPass);
+		void recreate(const std::shared_ptr<Window>& window, const std::unique_ptr<RenderPass>& renderPass);
 		VkSwapchainKHR get() const;
 		operator VkSwapchainKHR() const;
 		VkFormat getImageFormat() const;
 
-		const RenderPass& getRenderPass() const;
 		const std::vector<Framebuffer>& getFramebuffers() const;
 		VkExtent2D getExtent() const;
 
@@ -47,6 +47,5 @@ namespace vk::core
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, const std::shared_ptr<Window>& window);
 		void createImageViews();
-		void createFramebuffers();
 	};
 }
