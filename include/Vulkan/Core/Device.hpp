@@ -6,7 +6,7 @@
 #include <memory>
 #include <vector>
 
-namespace vk::core
+namespace vk
 {
 	class Device
 	{

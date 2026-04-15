@@ -2,8 +2,6 @@
 #include "Vulkan/Core/Surface.hpp"
 #include "Vulkan/Core/PhysicalDevice.hpp"
 #include "Vulkan/Core/Device.hpp"
-#include "Vulkan/Core/ImageView.hpp"
-#include "Vulkan/Core/Framebuffer.hpp"
 #include "Vulkan/Core/RenderPass.hpp"
 #include "Window/Window.hpp"
 
@@ -12,7 +10,7 @@
 #include <memory>
 #include <vector>
 
-namespace vk::core
+namespace vk
 {
 	class SwapChain
 	{
@@ -22,9 +20,9 @@ namespace vk::core
 		VkExtent2D m_extent;
 		std::shared_ptr<Device> m_device;
 		std::shared_ptr<Surface> m_surface;
-		std::vector<VkImage> m_images;
-		std::vector<ImageView> m_imageViews;
-		std::vector<Framebuffer> m_framebuffers;
+		std::vector<VkImage> m_imageHandles;
+		std::vector<VkImageView> m_imageViewHandles;
+		std::vector<VkFramebuffer> m_framebufferHandles;
 
 	public:
 		SwapChain(const std::shared_ptr<Device>& device, const std::shared_ptr<Surface>& surface, const std::shared_ptr<Window>& window);
@@ -39,7 +37,7 @@ namespace vk::core
 		operator VkSwapchainKHR() const;
 		VkFormat getImageFormat() const;
 
-		const std::vector<Framebuffer>& getFramebuffers() const;
+		const std::vector<VkFramebuffer>& getFramebufferHandles() const;
 		VkExtent2D getExtent() const;
 
 	private:
@@ -47,5 +45,7 @@ namespace vk::core
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, const std::shared_ptr<Window>& window);
 		void createImageViews();
+		void clearFramebuffers();
+		void clearImageViews();
 	};
 }

@@ -7,7 +7,7 @@
 #include <vector>
 #include <string>
 
-namespace vk::core
+namespace vk
 {
     class Instance
     {

@@ -1,8 +1,8 @@
 #include "Vulkan/Core/PhysicalDevice.hpp"
-#include "Vulkan/Core/Utility.hpp"
+#include "Vulkan/Utility.hpp"
 #include <map>
 
-namespace vk::core
+namespace vk
 {
 	PhysicalDevice::PhysicalDevice(const std::shared_ptr<Instance>& instance, const std::shared_ptr<Surface>& surface)
 	{

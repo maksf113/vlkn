@@ -1,8 +1,8 @@
 #include "Vulkan/Core/Device.hpp"
-#include "Vulkan/Core/Utility.hpp"
+#include "Vulkan/Utility.hpp"
 #include <set>
 
-namespace vk::core
+namespace vk
 {
 	Device::Device(const std::shared_ptr<PhysicalDevice>& physicalDevice) : m_physicalDevice(physicalDevice)
 	{

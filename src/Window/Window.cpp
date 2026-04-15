@@ -55,12 +55,12 @@ bool Window::shouldClose() const
     return glfwWindowShouldClose(m_handle);
 }
 
-uint32_t Window::width() const
+uint32_t Window::getWidth() const
 {
     return m_width;
 }
 
-uint32_t Window::height() const
+uint32_t Window::getHeight() const
 {
     return m_height;
 }

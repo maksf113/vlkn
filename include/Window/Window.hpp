@@ -26,8 +26,8 @@ public:
 
 	void pollEvents() const;
 	bool shouldClose() const;
-	uint32_t width() const;
-	uint32_t height() const;
+	uint32_t getWidth() const;
+	uint32_t getHeight() const;
 	void setWidth(uint32_t width);
 	void setHeight(uint32_t height);
 };

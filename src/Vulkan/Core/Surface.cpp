@@ -5,7 +5,7 @@
 #endif
 #include <GLFW/glfw3.h>
 
-namespace vk::core
+namespace vk
 {
 	Surface::Surface(const std::shared_ptr<Instance>& instance, const std::shared_ptr<Window>& window) : 
 		m_instance(instance), m_window(window)

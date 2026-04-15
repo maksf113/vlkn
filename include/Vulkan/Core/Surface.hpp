@@ -6,7 +6,7 @@
 
 #include <memory>
 
-namespace vk::core
+namespace vk
 {
 	class Surface
 	{

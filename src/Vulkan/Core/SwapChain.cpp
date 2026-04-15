@@ -5,7 +5,7 @@
 #include <memory>
 #include <iostream>
 
-namespace vk::core
+namespace vk
 {
 	SwapChain::SwapChain(const std::shared_ptr<Device>& device, const std::shared_ptr<Surface>& surface, const std::shared_ptr<Window>& window) :
 		m_device(device), m_surface(surface)
@@ -61,8 +61,8 @@ namespace vk::core
 		}
 
 		vkGetSwapchainImagesKHR(*m_device, m_handle, &imageCount, nullptr);
-		m_images.resize(imageCount);
-		vkGetSwapchainImagesKHR(*m_device, m_handle, &imageCount, m_images.data());
+		m_imageHandles.resize(imageCount);
+		vkGetSwapchainImagesKHR(*m_device, m_handle, &imageCount, m_imageHandles.data());
 
 		createImageViews();
 	}
@@ -70,8 +70,8 @@ namespace vk::core
 	SwapChain::SwapChain(SwapChain&& other) noexcept :
 		m_handle(other.m_handle), m_imageFormat(other.m_imageFormat), m_extent(other.m_extent),
 		m_device(std::move(other.m_device)), m_surface(std::move(other.m_surface)),
-		m_images(std::move(other.m_images)), m_imageViews(std::move(other.m_imageViews)),
-		m_framebuffers(std::move(other.m_framebuffers))
+		m_imageHandles(std::move(other.m_imageHandles)), m_imageViewHandles(std::move(other.m_imageViewHandles)),
+		m_framebufferHandles(std::move(other.m_framebufferHandles))
 	{
 		other.m_handle = VK_NULL_HANDLE;
 	}
@@ -83,15 +83,17 @@ namespace vk::core
 		m_extent = other.m_extent;
 		m_device = std::move(other.m_device);
 		m_surface = std::move(other.m_surface);
-		m_images = std::move(other.m_images);
-		m_imageViews = std::move(other.m_imageViews);
-		m_framebuffers = std::move(other.m_framebuffers);	
+		m_imageHandles = std::move(other.m_imageHandles);
+		m_imageViewHandles = std::move(other.m_imageViewHandles);
+		m_framebufferHandles = std::move(other.m_framebufferHandles);	
 		other.m_handle = VK_NULL_HANDLE;
 		return *this;
 	}
 
 	SwapChain::~SwapChain()
 	{
+		clearFramebuffers();
+		clearImageViews();
 		if (m_handle != VK_NULL_HANDLE)
 		{
 			vkDestroySwapchainKHR(*m_device, m_handle, nullptr);
@@ -101,9 +103,7 @@ namespace vk::core
 	void SwapChain::recreate(const std::shared_ptr<Window>& window, const std::unique_ptr<RenderPass>& renderPass)
 	{
 		vkDeviceWaitIdle(*m_device);
-		m_images.clear();
-		m_imageViews.clear();
-		m_framebuffers.clear();
+		clearFramebuffers();
 		vkDestroySwapchainKHR(*m_device, m_handle, nullptr);
 		m_handle = VK_NULL_HANDLE;
 		SwapChain newSwapChain(m_device, m_surface, window);
@@ -127,9 +127,9 @@ namespace vk::core
 		return m_imageFormat;
 	}
 
-	const std::vector<Framebuffer>& SwapChain::getFramebuffers() const
+	const std::vector<VkFramebuffer>& SwapChain::getFramebufferHandles() const
 	{
-		return m_framebuffers;
+		return m_framebufferHandles;
 	}
 
 	VkExtent2D SwapChain::getExtent() const
@@ -171,8 +171,8 @@ namespace vk::core
 		else
 		{
 			VkExtent2D actualExtent = {
-				window->width(),
-				window->height()
+				window->getWidth(),
+				window->getHeight()
 			};
 			actualExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actualExtent.width));
 			actualExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actualExtent.height));
@@ -182,21 +182,76 @@ namespace vk::core
 
 	void SwapChain::createImageViews()
 	{
-		m_imageViews.reserve(m_images.size());
-		for (const auto& image : m_images)
+		m_imageViewHandles.resize(m_imageHandles.size());
+		for(int i = 0; i < m_imageHandles.size(); i++)
 		{
-			m_imageViews.emplace_back(m_device, image, m_imageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+			VkImageViewCreateInfo createInfo{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.image = m_imageHandles[i],
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = m_imageFormat,
+			.components = {
+				.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.a = VK_COMPONENT_SWIZZLE_IDENTITY
+			},
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			}
+			};
+			if (vkCreateImageView(*m_device, &createInfo, nullptr, &m_imageViewHandles[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("Failed to create image view");
+			}
 		}
 	}
 
 	void SwapChain::createFramebuffers(const std::unique_ptr<RenderPass>& renderPass)
 	{
-		//Framebuffer(const std::shared_ptr<Device>&device, VkRenderPass renderPass, const std::vector<VkImageView>&attachments, VkExtent2D extent);
-		m_framebuffers.reserve(m_imageViews.size());
-		for (const auto& imageView : m_imageViews)
+		if (m_imageViewHandles.size() < 1)
 		{
-			std::vector<VkImageView> attachments = { imageView.get() };
-			m_framebuffers.emplace_back(m_device, *renderPass, attachments, m_extent);
+			throw std::runtime_error("Attempting to create swap chain framebuffers with no image views");
 		}
+		m_framebufferHandles.resize(m_imageViewHandles.size());
+		for (int i = 0; i < m_imageViewHandles.size(); i++)
+		{
+			VkFramebufferCreateInfo createInfo{
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = *renderPass,
+			.attachmentCount = static_cast<uint32_t>(1),
+			.pAttachments = &m_imageViewHandles[i],
+			.width = m_extent.width,
+			.height = m_extent.height,
+			.layers = 1
+			};
+			if (vkCreateFramebuffer(*m_device, &createInfo, nullptr, &m_framebufferHandles[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("Failed to create framebuffer");
+			}
+		}
+		
+	}
+
+	void SwapChain::clearFramebuffers()
+	{
+		for (const auto& framebuffer : m_framebufferHandles)
+		{
+			vkDestroyFramebuffer(*m_device, framebuffer, nullptr);
+		}
+		m_framebufferHandles.clear();
+	}
+
+	void SwapChain::clearImageViews()
+	{
+		for (const auto& imageView : m_imageViewHandles)
+		{
+			vkDestroyImageView(*m_device, imageView, nullptr);
+		}
+		m_imageViewHandles.clear();
 	}
 }

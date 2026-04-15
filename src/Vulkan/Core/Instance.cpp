@@ -1,10 +1,10 @@
 #include "Vulkan/Core/Instance.hpp"
-#include "Vulkan/Core/Utility.hpp"
+#include "Vulkan/Utility.hpp"
 
 #include <stdexcept>
 #include <utility>
 
-namespace vk::core
+namespace vk
 {
     Instance::Instance(const Config& config) : m_config(config)
     {

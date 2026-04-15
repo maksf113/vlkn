@@ -6,7 +6,7 @@
 #include <string>
 #include <memory>
 
-namespace vk::core
+namespace vk
 {
 	class DebugMessenger
 	{

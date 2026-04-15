@@ -1,8 +1,5 @@
 #pragma once
 #include "Vulkan/Core/Context.hpp"
-#include "Vulkan/Core/CommandPool.hpp"
-#include "Vulkan/Core/Semaphore.hpp"
-#include "Vulkan/Core/Fence.hpp"
 #include "Vulkan/Core/RenderPass.hpp"
 #include "Vulkan/Core/SwapChain.hpp"
 #include "Window/GlfwInstance.hpp"
@@ -12,22 +9,32 @@
 #include <memory>
 #include <chrono>
 
+struct FrameData
+{
+	VkCommandPool commandPool;
+	VkCommandBuffer commandBuffer;
+	VkSemaphore imageAvailableSemaphore;
+	VkSemaphore renderFinishedSemaphore;
+	VkFence inFlightFence;
+
+	std::chrono::high_resolution_clock::time_point startTime;
+	std::chrono::high_resolution_clock::time_point endTime;
+};
+
 class Application
 {
 private:
 	std::string m_name;
 	GlfwInstance m_glfwInstance;
 	std::shared_ptr<Window> m_window;
-	std::unique_ptr<vk::core::Context> m_vkContext;
+
+	std::unique_ptr<vk::Context> m_vkContext;
+	std::shared_ptr<vk::SwapChain> m_swapChain;
+	std::unique_ptr<vk::RenderPass> m_renderPass;
+
 	static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-	uint32_t m_currentFrame = 0;
-	std::unique_ptr<vk::core::CommandPool> m_commandPool;
-	std::vector<VkCommandBuffer> m_commandBuffers;
-	std::shared_ptr<vk::core::SwapChain> m_swapChain;
-	std::unique_ptr<vk::core::RenderPass> m_renderPass;
-	std::vector<vk::core::Semaphore> m_imageAvailableSemaphores;
-	std::vector<vk::core::Semaphore> m_renderFinishedSemaphores;
-	std::vector<vk::core::Fence> m_inFlightFences;
+	FrameData m_frames[MAX_FRAMES_IN_FLIGHT];
+	uint32_t m_currentFrameIndex = 0;
 	
 public:
 	Application(std::string_view name, uint16_t width, uint16_t height);

@@ -1,9 +1,9 @@
 #include "Vulkan/Core/DebugMessenger.hpp"
-#include "Vulkan/Core/Utility.hpp"
+#include "Vulkan/Utility.hpp"
 
 #include <iostream>
 
-namespace vk::core
+namespace vk
 {
 	DebugMessenger::DebugMessenger(const std::shared_ptr<Instance>& instance) : m_instance(instance)
 	{

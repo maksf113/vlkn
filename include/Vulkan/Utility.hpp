@@ -8,7 +8,7 @@
 #include <string>
 #include <source_location>
 
-namespace vk::core
+namespace vk
 {
 
 	template <typename T>

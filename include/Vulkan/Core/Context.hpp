@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace vk::core
+namespace vk
 {
 	class Context
 	{

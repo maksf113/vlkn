@@ -6,7 +6,7 @@
 #include <memory>
 #include <utility>
 
-namespace vk::core
+namespace vk
 {
 	Context::Context(std::string_view name, std::shared_ptr<Window>& window) : 
 		m_name(name), m_window(window)

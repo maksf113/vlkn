@@ -3,7 +3,7 @@
 #include <stdexcept>
 
 
-namespace vk::core
+namespace vk
 {
 	RenderPass::RenderPass(const std::shared_ptr<Device>& device, VkFormat format) : m_device(device)
 	{

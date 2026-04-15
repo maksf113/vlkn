@@ -7,7 +7,7 @@
 #include <optional>
 #include <vector>
 
-namespace vk::core
+namespace vk
 {
 	struct QueueFamilyIndices
 	{
