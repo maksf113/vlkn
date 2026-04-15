@@ -4,7 +4,6 @@
 #include "Vulkan/Core/Surface.hpp"
 #include "Vulkan/Core/PhysicalDevice.hpp"
 #include "Vulkan/Core/Device.hpp"
-#include "Vulkan/Core/SwapChain.hpp"
 #include "Window/Window.hpp"
 
 #include <memory>
