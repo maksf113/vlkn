@@ -1,6 +1,7 @@
 #pragma once
 #include "Vulkan/Renderer/SwapChain.hpp"
 #include "Vulkan/Renderer/RenderPass.hpp"
+#include "Vulkan/Renderer/Pipeline.hpp"
 #include "Vulkan/Core/Context.hpp"
 #include "Vulkan/Core/Device.hpp"
 
@@ -30,6 +31,8 @@ namespace vk
 		std::shared_ptr<vk::Context> m_context;
 		std::unique_ptr<SwapChain> m_swapChain;
 		std::unique_ptr<RenderPass> m_renderPass;
+		VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
+		std::unique_ptr<Pipeline> m_pipeline;
 
 		static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 		FrameData m_frames[MAX_FRAMES_IN_FLIGHT];
@@ -45,6 +48,7 @@ namespace vk
 
 		void drawFrame();
 		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+		void recreateSwapChain();
 	};
 }
 	

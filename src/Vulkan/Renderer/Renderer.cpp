@@ -49,6 +49,46 @@ namespace vk
 			};
 			vk::check(vkCreateFence(*m_context->getDevice(), &fenceInfo, nullptr, &m_frames[i].inFlightFence));
 		}
+
+		// pipeline layout
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = 0;
+		pipelineLayoutInfo.pushConstantRangeCount = 0;
+		pipelineLayoutInfo.pSetLayouts = nullptr;
+		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+		check(vkCreatePipelineLayout(*m_context->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout));
+
+		// pipeline config
+		PipelineConfig pipelineConfig{};
+		Pipeline::defaultPipelineConfig(pipelineConfig);
+		pipelineConfig.addShaderStage(VK_SHADER_STAGE_VERTEX_BIT, "C:/Dev/C++/Vulkan/shaders/triangle.vert.spv");
+		pipelineConfig.addShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, "C:/Dev/C++/Vulkan/shaders/triangle.frag.spv");
+		pipelineConfig.renderPass = m_renderPass->get();
+		pipelineConfig.pipelineLayout = m_pipelineLayout;
+
+		pipelineConfig.rasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
+
+		m_pipeline = std::make_unique<Pipeline>(m_context, pipelineConfig);
+	}
+
+	Renderer::Renderer(Renderer&& other) noexcept :
+		m_context(std::move(other.m_context)), m_swapChain(std::move(other.m_swapChain)),
+		m_renderPass(std::move(other.m_renderPass)), m_currentFrameIndex(other.m_currentFrameIndex)
+	{
+		std::copy(std::begin(other.m_frames), std::end(other.m_frames), std::begin(m_frames));
+		std::fill(std::begin(other.m_frames), std::end(other.m_frames), FrameData{});
+	}
+
+	Renderer& Renderer::operator=(Renderer&& other) noexcept
+	{
+		m_context = std::move(other.m_context);
+		m_swapChain = std::move(other.m_swapChain);
+		m_renderPass = std::move(other.m_renderPass);
+		m_currentFrameIndex = other.m_currentFrameIndex;
+		std::copy(std::begin(other.m_frames), std::end(other.m_frames), std::begin(m_frames));
+		std::fill(std::begin(other.m_frames), std::end(other.m_frames), FrameData{});
+		return *this;
 	}
 
 	Renderer::~Renderer()
@@ -77,7 +117,6 @@ namespace vk
 		glfwGetFramebufferSize(m_context->getWindow()->get(), &width, &height);
 		VkResult acquireResult = vkAcquireNextImageKHR(m_context->getDevice()->get(), m_swapChain->get(), UINT64_MAX, frame.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
-		std::cout << "Aquire result: " << string_VkResult(acquireResult) << "\n";
 		if (m_context->getWindow()->getWidth() != width || m_context->getWindow()->getHeight() != height)
 		{
 			while (width == 0 || height == 0)
@@ -87,7 +126,6 @@ namespace vk
 			}
 			m_context->getWindow()->setWidth(width);
 			m_context->getWindow()->setHeight(height);
-			std::cout << "wdfwedf";
 			m_swapChain->recreate(m_context->getWindow(), m_renderPass);
 			return;
 		}
@@ -140,7 +178,20 @@ namespace vk
 		presentInfo.pSwapchains = swapChains;
 		presentInfo.pImageIndices = &imageIndex;
 
-		vkQueuePresentKHR(m_context->getDevice()->getPresentQueue(), &presentInfo);
+		VkResult presentResult = vkQueuePresentKHR(m_context->getDevice()->getPresentQueue(), &presentInfo);
+		if(presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR)
+		{
+			while (width == 0 || height == 0)
+			{
+				glfwGetFramebufferSize(m_context->getWindow()->get(), &width, &height);
+				glfwWaitEvents();
+			}
+			m_swapChain->recreate(m_context->getWindow(), m_renderPass);
+		}
+		 else if (presentResult != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to present swap chain image!");
+		}
 
 		// next frame index
 		m_currentFrameIndex = (m_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -173,10 +224,44 @@ namespace vk
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 		// pipeline
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->get());
+
+		// dynamic viewport and scissor
+		VkViewport viewport{
+			.x = 0.0f,
+			.y = 0.0f,
+			.width = static_cast<float>(m_swapChain->getExtent().width),
+			.height = static_cast<float>(m_swapChain->getExtent().height),
+			.minDepth = 0.0f,
+			.maxDepth = 1.0f
+		};
+		
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+		VkRect2D scissor{
+			.offset = { 0, 0 },
+			.extent = m_swapChain->getExtent()
+		};
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+		// draw call, 3 vertices, 1 instance, 0 first vertex, 0 first instance
+		vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
 		vkCmdEndRenderPass(commandBuffer);
 		vk::check(vkEndCommandBuffer(commandBuffer));
 	}	
 
-	
+	void Renderer::recreateSwapChain()
+	{
+		int width = 0, height = 0;
+		glfwGetFramebufferSize(m_context->getWindow()->get(), &width, &height);
+		while (width == 0 || height == 0)
+		{
+			glfwGetFramebufferSize(m_context->getWindow()->get(), &width, &height);
+			glfwWaitEvents();
+		}
+		m_swapChain->recreate(m_context->getWindow(), m_renderPass);
+	}
+
+
 }

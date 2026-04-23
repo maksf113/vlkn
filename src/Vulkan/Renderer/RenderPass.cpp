@@ -49,6 +49,10 @@ namespace vk
 
 	RenderPass& RenderPass::operator=(RenderPass&& other) noexcept
 	{
+		if(m_handle != VK_NULL_HANDLE)
+		{
+			vkDestroyRenderPass(*m_device, m_handle, nullptr);
+		}
 		m_handle = other.m_handle;
 		m_device = std::move(other.m_device);
 		other.m_handle = VK_NULL_HANDLE;

@@ -78,6 +78,10 @@ namespace vk
 
 	SwapChain& SwapChain::operator=(SwapChain&& other) noexcept
 	{
+		if(m_handle != VK_NULL_HANDLE)
+		{
+			vkDestroySwapchainKHR(*m_device, m_handle, nullptr);
+		}	
 		m_handle = other.m_handle;
 		m_imageFormat = other.m_imageFormat;
 		m_extent = other.m_extent;
@@ -104,6 +108,7 @@ namespace vk
 	{
 		vkDeviceWaitIdle(*m_device);
 		clearFramebuffers();
+		clearImageViews();
 		vkDestroySwapchainKHR(*m_device, m_handle, nullptr);
 		m_handle = VK_NULL_HANDLE;
 		SwapChain newSwapChain(m_device, m_surface, window);

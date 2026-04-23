@@ -48,5 +48,6 @@ namespace vk
 		void createImageViews();
 		void clearFramebuffers();
 		void clearImageViews();
+
 	};
 }

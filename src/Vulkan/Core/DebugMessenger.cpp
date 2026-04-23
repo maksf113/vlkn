@@ -33,6 +33,11 @@ namespace vk
 
 	DebugMessenger& DebugMessenger::operator=(DebugMessenger&& other) noexcept
 	{
+		if(m_handle != VK_NULL_HANDLE)
+		{
+			auto destroyFunc = loadFunction<PFN_vkDestroyDebugUtilsMessengerEXT>(*m_instance.get(), "vkDestroyDebugUtilsMessengerEXT");
+			destroyFunc(*m_instance.get(), m_handle, nullptr);
+		}
 		m_handle = other.m_handle;
 		m_instance = std::move(other.m_instance);
 		other.m_handle = VK_NULL_HANDLE;

@@ -41,6 +41,10 @@ namespace vk
     }
     Instance& Instance::operator=(Instance&& other) noexcept
     {
+        if(m_handle != VK_NULL_HANDLE)
+        {
+            vkDestroyInstance(m_handle, nullptr);
+        }
         m_handle = other.m_handle;
         m_config = std::move(other.m_config);
         other.m_handle = VK_NULL_HANDLE;

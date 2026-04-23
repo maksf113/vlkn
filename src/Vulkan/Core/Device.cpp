@@ -50,6 +50,10 @@ namespace vk
 
 	Device& Device::operator=(Device&& other) noexcept
 	{
+		if(m_handle != VK_NULL_HANDLE)
+		{
+			vkDestroyDevice(m_handle, nullptr);
+		}
 		m_handle = other.m_handle;
 		m_graphicsQueue = other.m_graphicsQueue;
 		m_presentQueue = other.m_presentQueue;

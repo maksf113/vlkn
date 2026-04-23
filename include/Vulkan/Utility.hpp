@@ -7,6 +7,10 @@
 #include <stdexcept>
 #include <string>
 #include <source_location>
+#include <vector>
+#include <fstream>
+
+const std::vector<char> readFile(const std::string& filePath);
 
 namespace vk
 {
