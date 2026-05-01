@@ -1,5 +1,5 @@
 #pragma once
-#include "Vulkan/Core/Context.hpp"
+#include "vulkan/core/Context.hpp"
 
 #include <Vulkan/vulkan.h>
 
@@ -29,7 +29,7 @@ namespace vk
 		std::vector<VkDynamicState>	dynamicStateEnables;
 
 		VkPipelineLayout pipelineLayout;
-		VkRenderPass renderPass;
+		VkRenderPass renderPass = VK_NULL_HANDLE;
 		uint32_t subpasss = 0;
 
 		std::vector<ShaderStageConfig> shaderConfigs;
@@ -54,7 +54,7 @@ namespace vk
 		std::shared_ptr<Device> m_device;
 
 	public:
-		Pipeline(const std::shared_ptr<Context>& context, const PipelineConfig& config);
+		Pipeline(const std::shared_ptr<Context>& context, const PipelineConfig& config, VkFormat format);
 		Pipeline(const Pipeline&) = delete;
 		Pipeline& operator=(const Pipeline&) = delete;
 		Pipeline(Pipeline&& other) noexcept;

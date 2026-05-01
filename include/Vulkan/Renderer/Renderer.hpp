@@ -1,10 +1,10 @@
 #pragma once
-#include "Vulkan/Renderer/SwapChain.hpp"
-#include "Vulkan/Renderer/RenderPass.hpp"
-#include "Vulkan/Renderer/Pipeline.hpp"
-#include "Vulkan/Core/Context.hpp"
-#include "Vulkan/Core/Device.hpp"
-
+#include "vulkan/renderer/SwapChain.hpp"
+#include "vulkan/renderer/Pipeline.hpp"
+#include "vulkan/core/Context.hpp"
+#include "vulkan/core/Device.hpp"
+#include "vulkan/memory/VertexBuffer.hpp"
+#include "vulkan/memory/IndexBuffer.hpp"
 
 #include <Vulkan/vulkan.h>
 
@@ -30,9 +30,12 @@ namespace vk
 	private:
 		std::shared_ptr<vk::Context> m_context;
 		std::unique_ptr<SwapChain> m_swapChain;
-		std::unique_ptr<RenderPass> m_renderPass;
 		VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
 		std::unique_ptr<Pipeline> m_pipeline;
+		std::vector<Vertex> m_vertices;
+		std::vector<uint32_t> m_indices;
+		std::unique_ptr<VertexBuffer<Vertex>> m_vertexBuffer;
+		std::unique_ptr<IndexBuffer> m_indexBuffer;
 
 		static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 		FrameData m_frames[MAX_FRAMES_IN_FLIGHT];
@@ -47,7 +50,7 @@ namespace vk
 		~Renderer();
 
 		void drawFrame();
-		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+		void recordDynamicCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);	
 		void recreateSwapChain();
 	};
 }

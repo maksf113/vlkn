@@ -1,5 +1,5 @@
-#include "Vulkan/Core/DebugMessenger.hpp"
-#include "Vulkan/Utility.hpp"
+#include "vulkan/core/DebugMessenger.hpp"
+#include "vulkan/Utility.hpp"
 
 #include <iostream>
 

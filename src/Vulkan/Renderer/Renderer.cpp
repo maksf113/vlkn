@@ -1,17 +1,17 @@
-#include "Vulkan/Renderer/Renderer.hpp"
-#include "Vulkan/Utility.hpp"
+#include "vulkan/renderer/Renderer.hpp"
+#include "vulkan/memory/VertexBindingDescription.hpp"
+#include "vulkan/memory/VertexAttributeDescription.hpp"
+#include "vulkan/Utility.hpp"
 
-#include "Window/GlfwInstance.hpp"
+#include "window/GlfwInstance.hpp"
 
-#include "Vulkan/vk_enum_string_helper.h"
+#include "vulkan/vk_enum_string_helper.h"
 
 namespace vk
 {
 	Renderer::Renderer(const std::shared_ptr<Context>& context) : m_context(context)
 	{
 		m_swapChain = std::make_unique<vk::SwapChain>(m_context->getDevice(), m_context->getSurface(), m_context->getWindow());
-		m_renderPass = std::make_unique<vk::RenderPass>(m_context->getDevice(), m_swapChain->getImageFormat());
-		m_swapChain->createFramebuffers(m_renderPass);
 
 		// frame data
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -64,17 +64,46 @@ namespace vk
 		Pipeline::defaultPipelineConfig(pipelineConfig);
 		pipelineConfig.addShaderStage(VK_SHADER_STAGE_VERTEX_BIT, "C:/Dev/C++/Vulkan/shaders/triangle.vert.spv");
 		pipelineConfig.addShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, "C:/Dev/C++/Vulkan/shaders/triangle.frag.spv");
-		pipelineConfig.renderPass = m_renderPass->get();
 		pipelineConfig.pipelineLayout = m_pipelineLayout;
 
 		pipelineConfig.rasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
 
-		m_pipeline = std::make_unique<Pipeline>(m_context, pipelineConfig);
+		// vertex descriptors
+		VertexBindingDescription<Vertex> vertexBindingDescription(0);
+		VertexAttributeDescription vertexAttributeDescription(0);
+		vertexAttributeDescription.pushAttribute<float>(3); // position	
+		vertexAttributeDescription.pushAttribute<float>(3); // color
+
+
+		pipelineConfig.vertexBindingDescriptions.push_back(vertexBindingDescription.get());
+		pipelineConfig.vertexAttributeDescriptions.push_back(vertexAttributeDescription[0]);
+		pipelineConfig.vertexAttributeDescriptions.push_back(vertexAttributeDescription[1]);
+
+		pipelineConfig.vertexInputStateCreateInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(pipelineConfig.vertexBindingDescriptions.size());
+		pipelineConfig.vertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(pipelineConfig.vertexAttributeDescriptions.size());
+		pipelineConfig.vertexInputStateCreateInfo.pVertexBindingDescriptions = pipelineConfig.vertexBindingDescriptions.data();
+		pipelineConfig.vertexInputStateCreateInfo.pVertexAttributeDescriptions = pipelineConfig.vertexAttributeDescriptions.data();
+
+		m_pipeline = std::make_unique<Pipeline>(m_context, pipelineConfig, m_swapChain->getImageFormat());
+
+		// vertex buffer
+		m_vertices = {
+			// positions         // colors
+			{-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f },
+			{ 0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 0.0f },
+			{-0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f },
+			{ 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f }
+		};
+		m_vertexBuffer = std::make_unique<VertexBuffer<Vertex>>(m_context->getDevice(), m_vertices, static_cast<VkMemoryPropertyFlagBits>(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
+
+		// index buffer
+		m_indices = { 0, 1, 2, 0, 1, 3 };
+
+		m_indexBuffer = std::make_unique<IndexBuffer>(m_indices, m_context->getDevice());
 	}
 
 	Renderer::Renderer(Renderer&& other) noexcept :
-		m_context(std::move(other.m_context)), m_swapChain(std::move(other.m_swapChain)),
-		m_renderPass(std::move(other.m_renderPass)), m_currentFrameIndex(other.m_currentFrameIndex)
+		m_context(std::move(other.m_context)), m_swapChain(std::move(other.m_swapChain)), m_currentFrameIndex(other.m_currentFrameIndex)
 	{
 		std::copy(std::begin(other.m_frames), std::end(other.m_frames), std::begin(m_frames));
 		std::fill(std::begin(other.m_frames), std::end(other.m_frames), FrameData{});
@@ -82,9 +111,19 @@ namespace vk
 
 	Renderer& Renderer::operator=(Renderer&& other) noexcept
 	{
+		if(m_pipelineLayout != VK_NULL_HANDLE)
+		{
+			vkDestroyPipelineLayout(*m_context->getDevice(), m_pipelineLayout, nullptr);
+		}
+		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			vkDestroyFence(*m_context->getDevice(), m_frames[i].inFlightFence, nullptr);
+			vkDestroySemaphore(*m_context->getDevice(), m_frames[i].renderFinishedSemaphore, nullptr);
+			vkDestroySemaphore(*m_context->getDevice(), m_frames[i].imageAvailableSemaphore, nullptr);
+			vkDestroyCommandPool(*m_context->getDevice(), m_frames[i].commandPool, nullptr);
+		}
 		m_context = std::move(other.m_context);
 		m_swapChain = std::move(other.m_swapChain);
-		m_renderPass = std::move(other.m_renderPass);
 		m_currentFrameIndex = other.m_currentFrameIndex;
 		std::copy(std::begin(other.m_frames), std::end(other.m_frames), std::begin(m_frames));
 		std::fill(std::begin(other.m_frames), std::end(other.m_frames), FrameData{});
@@ -93,6 +132,13 @@ namespace vk
 
 	Renderer::~Renderer()
 	{
+		// 1. Destroy the pipeline layout
+		if (m_pipelineLayout != VK_NULL_HANDLE)
+		{
+			vkDestroyPipelineLayout(*m_context->getDevice(), m_pipelineLayout, nullptr);
+		}
+
+		// 2. Destroy per-frame sync objects and command pools
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			vkDestroyFence(*m_context->getDevice(), m_frames[i].inFlightFence, nullptr);
@@ -126,7 +172,7 @@ namespace vk
 			}
 			m_context->getWindow()->setWidth(width);
 			m_context->getWindow()->setHeight(height);
-			m_swapChain->recreate(m_context->getWindow(), m_renderPass);
+			m_swapChain->recreate(m_context->getWindow());
 			return;
 		}
 		if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
@@ -137,13 +183,13 @@ namespace vk
 				glfwGetFramebufferSize(m_context->getWindow()->get(), &width, &height);
 				glfwWaitEvents();
 			}
-			m_swapChain->recreate(m_context->getWindow(), m_renderPass);
+			m_swapChain->recreate(m_context->getWindow());
 			return;
 		}
 		vk::check(vkResetFences(*m_context->getDevice(), 1, &frame.inFlightFence));
 
 		vkResetCommandPool(*m_context->getDevice(), frame.commandPool, 0);
-		recordCommandBuffer(frame.commandBuffer, imageIndex);
+		recordDynamicCommandBuffer(frame.commandBuffer, imageIndex);
 		// Submit command buffers waiting for swapchain image semaphore, signaling render finish semaphore and signaling render fence
 
 		VkSubmitInfo submitInfo{};
@@ -186,7 +232,7 @@ namespace vk
 				glfwGetFramebufferSize(m_context->getWindow()->get(), &width, &height);
 				glfwWaitEvents();
 			}
-			m_swapChain->recreate(m_context->getWindow(), m_renderPass);
+			m_swapChain->recreate(m_context->getWindow());
 		}
 		 else if (presentResult != VK_SUCCESS)
 		{
@@ -197,7 +243,7 @@ namespace vk
 		m_currentFrameIndex = (m_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
-	void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+	void Renderer::recordDynamicCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 	{
 		VkCommandBufferBeginInfo beginInfo{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
@@ -206,25 +252,6 @@ namespace vk
 		{
 			throw std::runtime_error("Failed to begin recording command buffer!");
 		}
-
-		// clear color
-		VkClearValue clearColor = { {{0.01f, 0.01f, 0.03f, 1.0f}} };
-		VkRenderPassBeginInfo renderPassInfo{
-			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			.renderPass = m_renderPass->get(),
-			.framebuffer = m_swapChain->getFramebufferHandles()[imageIndex],
-			.renderArea = {
-				.offset = { 0, 0 },
-				.extent = m_swapChain->getExtent()
-			},
-			.clearValueCount = 1,
-			.pClearValues = &clearColor
-		};
-
-		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		// pipeline
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->get());
 
 		// dynamic viewport and scissor
 		VkViewport viewport{
@@ -235,7 +262,7 @@ namespace vk
 			.minDepth = 0.0f,
 			.maxDepth = 1.0f
 		};
-		
+
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
 		VkRect2D scissor{
@@ -244,12 +271,108 @@ namespace vk
 		};
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-		// draw call, 3 vertices, 1 instance, 0 first vertex, 0 first instance
-		vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+		VkImageSubresourceRange sub{
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		};
 
-		vkCmdEndRenderPass(commandBuffer);
+		VkImageMemoryBarrier2 initialBarrier{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+			.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+			.srcAccessMask = VK_ACCESS_2_NONE,
+			.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.image = m_swapChain->getImageHandles()[imageIndex],
+			.subresourceRange = sub
+		};
+
+
+
+		VkDependencyInfo dependencyInfo{
+			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+			.imageMemoryBarrierCount = 1,
+			.pImageMemoryBarriers = &initialBarrier
+		};
+
+		vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+
+		VkRenderingAttachmentInfo colorAttachmentInfo{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = m_swapChain->getImageViewHandles()[imageIndex],
+			.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = VkClearValue{.color = {{0.01f, 0.01f, 0.03f, 1.0f}} },
+		};
+
+		VkRenderingInfo renderingInfo{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.renderArea = {
+				.offset = { 0, 0 },
+				.extent = m_swapChain->getExtent()
+			},
+			.layerCount = 1,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachmentInfo,
+			.pDepthAttachment = nullptr,
+			.pStencilAttachment = nullptr
+		};
+
+
+		vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+		// bind pipeline
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->get());
+		
+		// bind vertex buffer
+		m_vertexBuffer->bind(commandBuffer);
+
+		// bind index buffer
+		m_indexBuffer->bind(commandBuffer);
+
+		// draw call
+		vkCmdDrawIndexed(commandBuffer, m_indexBuffer->count(), 1, 0, 0, 0);
+
+		vkCmdEndRendering(commandBuffer);
+
+		VkImageSubresourceRange endSub{
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		};
+
+		VkImageMemoryBarrier2 endBarrier{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+			.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_2_NONE,
+			.dstAccessMask = VK_ACCESS_2_NONE,
+			.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			.image = m_swapChain->getImageHandles()[imageIndex],
+			.subresourceRange = endSub
+		};
+
+
+
+		VkDependencyInfo endDependencyInfo{
+			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+			.imageMemoryBarrierCount = 1,
+			.pImageMemoryBarriers = &endBarrier
+		};
+
+		vkCmdPipelineBarrier2(commandBuffer, &endDependencyInfo);
+
 		vk::check(vkEndCommandBuffer(commandBuffer));
-	}	
+	}
+
 
 	void Renderer::recreateSwapChain()
 	{
@@ -260,7 +383,7 @@ namespace vk
 			glfwGetFramebufferSize(m_context->getWindow()->get(), &width, &height);
 			glfwWaitEvents();
 		}
-		m_swapChain->recreate(m_context->getWindow(), m_renderPass);
+		m_swapChain->recreate(m_context->getWindow());
 	}
 
 

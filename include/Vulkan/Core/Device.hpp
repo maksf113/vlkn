@@ -1,5 +1,5 @@
 #pragma once
-#include "Vulkan/Core/PhysicalDevice.hpp"
+#include "vulkan/core/PhysicalDevice.hpp"
 
 #include <Vulkan/vulkan.h>
 

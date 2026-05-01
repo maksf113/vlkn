@@ -1,4 +1,4 @@
-#include "Vulkan/Utility.hpp"
+#include "vulkan/Utility.hpp"
 
 #include <fstream>
 #include <stdexcept>

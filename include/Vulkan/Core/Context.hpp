@@ -1,10 +1,10 @@
 #pragma once
-#include "Vulkan/Core/Instance.hpp"
-#include "Vulkan/Core/DebugMessenger.hpp"
-#include "Vulkan/Core/Surface.hpp"
-#include "Vulkan/Core/PhysicalDevice.hpp"
-#include "Vulkan/Core/Device.hpp"
-#include "Window/Window.hpp"
+#include "vulkan/core/Instance.hpp"
+#include "vulkan/core/DebugMessenger.hpp"
+#include "vulkan/core/Surface.hpp"
+#include "vulkan/core/PhysicalDevice.hpp"
+#include "vulkan/core/Device.hpp"
+#include "window/Window.hpp"
 
 #include <memory>
 #include <string>

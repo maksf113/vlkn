@@ -1,4 +1,4 @@
-#include "Window/GlfwInstance.hpp"
+#include "window/GlfwInstance.hpp"
 
 #ifndef GLFW_INCLUDE_VULKAN
 #define GLFW_INCLUDE_VULKAN

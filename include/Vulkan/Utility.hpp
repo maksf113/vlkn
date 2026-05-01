@@ -1,5 +1,5 @@
 #pragma once
-#include "Vulkan/Core/Instance.hpp"
+#include "vulkan/Core/Instance.hpp"
 
 #include <Vulkan/vulkan.h>
 

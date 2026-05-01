@@ -1,5 +1,5 @@
-#include "Vulkan/Core/Instance.hpp"
-#include "Vulkan/Utility.hpp"
+#include "vulkan/core/Instance.hpp"
+#include "vulkan/Utility.hpp"
 
 #include <stdexcept>
 #include <utility>

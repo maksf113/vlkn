@@ -1,8 +1,8 @@
 #pragma once
-#include "Vulkan/Core/Context.hpp"
-#include "Vulkan/Renderer/Renderer.hpp"
-#include "Window/GlfwInstance.hpp"
-#include "Window/Window.hpp"
+#include "vulkan/core/Context.hpp"
+#include "vulkan/renderer/Renderer.hpp"
+#include "window/GlfwInstance.hpp"
+#include "window/Window.hpp"
 
 #include <string>
 #include <memory>

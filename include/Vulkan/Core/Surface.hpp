@@ -1,6 +1,6 @@
 #pragma once
-#include "Vulkan/Core/Instance.hpp"
-#include "Window/Window.hpp"
+#include "vulkan/core/Instance.hpp"
+#include "window/Window.hpp"
 
 #include <Vulkan/vulkan.h>
 

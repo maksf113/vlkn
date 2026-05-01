@@ -1,5 +1,5 @@
-#include "Vulkan/Core/PhysicalDevice.hpp"
-#include "Vulkan/Utility.hpp"
+#include "vulkan/core/PhysicalDevice.hpp"
+#include "vulkan/Utility.hpp"
 #include <map>
 
 namespace vk
@@ -55,17 +55,30 @@ namespace vk
 
 		vkEnumeratePhysicalDevices(*instance, &deviceCount, devices.data());
 
+		bool foundDiscreteGpu = false;	
 		for (const auto& device : devices)
 			if (isDeviceSuitable(device, surface))
 			{
 				m_handle = device;
 				vkGetPhysicalDeviceProperties(m_handle, &m_properties);
 				vkGetPhysicalDeviceFeatures(m_handle, &m_features);
-				if(isDeviceDiscreteGpu(device))
+				if(m_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
 				{
 					break;
+					foundDiscreteGpu = true;
 				}
 			}
+		if(!foundDiscreteGpu)
+		{
+			for (const auto& device : devices)
+				if (isDeviceSuitable(device, surface))
+				{
+					m_handle = device;
+					vkGetPhysicalDeviceProperties(m_handle, &m_properties);
+					vkGetPhysicalDeviceFeatures(m_handle, &m_features);
+					break;
+				}
+		}
 
 		if (m_handle == VK_NULL_HANDLE)
 			throw std::runtime_error("Failed to find a suitable GPU");
@@ -130,5 +143,19 @@ namespace vk
 			vkGetPhysicalDeviceSurfacePresentModesKHR(m_handle, *surface, &presentModeCount, details.presentModes.data());
 		}
 		return details;
+	}
+
+	uint32_t PhysicalDevice::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const
+	{
+		VkPhysicalDeviceMemoryProperties memProperties;
+		vkGetPhysicalDeviceMemoryProperties(m_handle, &memProperties);
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+		{
+			if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+			{
+				return i;
+			}
+		}
+		throw std::runtime_error("Failed to find suitable memory type");
 	}
 }

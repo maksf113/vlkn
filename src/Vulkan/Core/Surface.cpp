@@ -1,4 +1,4 @@
-#include "Vulkan/Core/Surface.hpp"
+#include "vulkan/core/Surface.hpp"
 
 #ifndef GLFW_INCLUDE_VULKAN
 #define GLFW_INCLUDE_VULKAN

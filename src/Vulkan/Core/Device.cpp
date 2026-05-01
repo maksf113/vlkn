@@ -1,5 +1,5 @@
-#include "Vulkan/Core/Device.hpp"
-#include "Vulkan/Utility.hpp"
+#include "vulkan/core/Device.hpp"
+#include "vulkan/Utility.hpp"
 #include <set>
 
 namespace vk
@@ -22,17 +22,35 @@ namespace vk
 			};
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
-		VkPhysicalDeviceFeatures deviceFeatures{};
+
+		// 1. Setup Vulkan 1.3 core features
+		VkPhysicalDeviceVulkan13Features vulkan13Features{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+			.pNext = nullptr,
+			.synchronization2 = VK_TRUE,
+			.dynamicRendering = VK_TRUE
+		};
+
+		// 2. Wrap standard features in a Features2 struct and chain the 1.3 features
+		VkPhysicalDeviceFeatures2 deviceFeatures2{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+			.pNext = &vulkan13Features,
+			.features = {} // Zero initialize first
+		};
+		deviceFeatures2.features.fillModeNonSolid = VK_TRUE; // Enable wireframe mode
+
 		const std::vector<const char*> deviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
+
 		VkDeviceCreateInfo createInfo{
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+			.pNext = &deviceFeatures2,
 			.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
 			.pQueueCreateInfos = queueCreateInfos.data(),
 			.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
 			.ppEnabledExtensionNames = deviceExtensions.data(),
-			.pEnabledFeatures = &deviceFeatures
+			.pEnabledFeatures = nullptr // features enabled in pNext
 		};
 		check(vkCreateDevice(*m_physicalDevice, &createInfo, nullptr, &m_handle));
 		vkGetDeviceQueue(m_handle, m_physicalDevice->getQueueFamilyIndices().graphicsFamily.value(), 0, &m_graphicsQueue);

@@ -1,6 +1,6 @@
 #pragma once
-#include "Vulkan/Core/Instance.hpp"
-#include "Vulkan/Core/Surface.hpp"
+#include "vulkan/core/Instance.hpp"
+#include "vulkan/core/Surface.hpp"
 
 #include <Vulkan/vulkan.h>
 
@@ -49,6 +49,7 @@ namespace vk
 		const VkPhysicalDeviceProperties& getProperties() const;
 		const VkPhysicalDeviceFeatures& getFeatures() const;
 		SwapChainSupportDetails querySwapChainSupport(const std::shared_ptr<Surface>& surface) const;
+		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
 
 	private:
 		void pickPhysicalDevice(const std::shared_ptr<Instance>& instance, const std::shared_ptr<Surface>& surface);

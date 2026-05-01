@@ -1,9 +1,10 @@
 #include "Application.hpp"
-#include "Vulkan/Core/Instance.hpp"
-#include "Vulkan/Utility.hpp"
+
+#include "vulkan/core/Instance.hpp"
+#include "vulkan/Utility.hpp"
 
 #include <Vulkan/vulkan.h>
-#include "Vulkan/vk_enum_string_helper.h"
+#include "vulkan/vk_enum_string_helper.h"
 
 #include <memory>
 
@@ -28,4 +29,5 @@ void Application::run()
 		m_window->pollEvents();
 		m_renderer->drawFrame();
 	}
+	vkDeviceWaitIdle(m_vkContext->getDevice()->get());
 }

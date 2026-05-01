@@ -1,4 +1,4 @@
-#include "Vulkan/Renderer/SwapChain.hpp"
+#include "vulkan/renderer/SwapChain.hpp"
 
 #include <vector>
 #include <stdexcept>
@@ -70,8 +70,7 @@ namespace vk
 	SwapChain::SwapChain(SwapChain&& other) noexcept :
 		m_handle(other.m_handle), m_imageFormat(other.m_imageFormat), m_extent(other.m_extent),
 		m_device(std::move(other.m_device)), m_surface(std::move(other.m_surface)),
-		m_imageHandles(std::move(other.m_imageHandles)), m_imageViewHandles(std::move(other.m_imageViewHandles)),
-		m_framebufferHandles(std::move(other.m_framebufferHandles))
+		m_imageHandles(std::move(other.m_imageHandles)), m_imageViewHandles(std::move(other.m_imageViewHandles))
 	{
 		other.m_handle = VK_NULL_HANDLE;
 	}
@@ -89,14 +88,12 @@ namespace vk
 		m_surface = std::move(other.m_surface);
 		m_imageHandles = std::move(other.m_imageHandles);
 		m_imageViewHandles = std::move(other.m_imageViewHandles);
-		m_framebufferHandles = std::move(other.m_framebufferHandles);	
 		other.m_handle = VK_NULL_HANDLE;
 		return *this;
 	}
 
 	SwapChain::~SwapChain()
 	{
-		clearFramebuffers();
 		clearImageViews();
 		if (m_handle != VK_NULL_HANDLE)
 		{
@@ -104,15 +101,13 @@ namespace vk
 		}
 	}
 
-	void SwapChain::recreate(const std::shared_ptr<Window>& window, const std::unique_ptr<RenderPass>& renderPass)
+	void SwapChain::recreate(const std::shared_ptr<Window>& window)
 	{
 		vkDeviceWaitIdle(*m_device);
-		clearFramebuffers();
 		clearImageViews();
 		vkDestroySwapchainKHR(*m_device, m_handle, nullptr);
 		m_handle = VK_NULL_HANDLE;
 		SwapChain newSwapChain(m_device, m_surface, window);
-		newSwapChain.createFramebuffers(renderPass);
 		*this = std::move(newSwapChain);
 		std::cout << "SC recreation\n";
 	}
@@ -132,9 +127,14 @@ namespace vk
 		return m_imageFormat;
 	}
 
-	const std::vector<VkFramebuffer>& SwapChain::getFramebufferHandles() const
+	std::vector<VkImageView> SwapChain::getImageViewHandles() const
 	{
-		return m_framebufferHandles;
+		return m_imageViewHandles;
+	}
+
+	std::vector<VkImage> SwapChain::getImageHandles() const
+	{
+		return m_imageHandles;
 	}
 
 	VkExtent2D SwapChain::getExtent() const
@@ -214,41 +214,6 @@ namespace vk
 				throw std::runtime_error("Failed to create image view");
 			}
 		}
-	}
-
-	void SwapChain::createFramebuffers(const std::unique_ptr<RenderPass>& renderPass)
-	{
-		if (m_imageViewHandles.size() < 1)
-		{
-			throw std::runtime_error("Attempting to create swap chain framebuffers with no image views");
-		}
-		m_framebufferHandles.resize(m_imageViewHandles.size());
-		for (int i = 0; i < m_imageViewHandles.size(); i++)
-		{
-			VkFramebufferCreateInfo createInfo{
-			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-			.renderPass = *renderPass,
-			.attachmentCount = static_cast<uint32_t>(1),
-			.pAttachments = &m_imageViewHandles[i],
-			.width = m_extent.width,
-			.height = m_extent.height,
-			.layers = 1
-			};
-			if (vkCreateFramebuffer(*m_device, &createInfo, nullptr, &m_framebufferHandles[i]) != VK_SUCCESS)
-			{
-				throw std::runtime_error("Failed to create framebuffer");
-			}
-		}
-		
-	}
-
-	void SwapChain::clearFramebuffers()
-	{
-		for (const auto& framebuffer : m_framebufferHandles)
-		{
-			vkDestroyFramebuffer(*m_device, framebuffer, nullptr);
-		}
-		m_framebufferHandles.clear();
 	}
 
 	void SwapChain::clearImageViews()

@@ -1,12 +1,13 @@
-#include "Vulkan/Renderer/Pipeline.hpp"
-#include "Vulkan/Utility.hpp"
+#include "vulkan/renderer/Pipeline.hpp"
+#include "vulkan/renderer/SwapChain.hpp"
+#include "vulkan/Utility.hpp"
 
 #include <fstream>
 #include <iostream>
 
 namespace vk
 {
-	Pipeline::Pipeline(const std::shared_ptr<Context>& context, const PipelineConfig& config) :
+	Pipeline::Pipeline(const std::shared_ptr<Context>& context, const PipelineConfig& config, VkFormat format) :
 		m_device(context->getDevice()), m_pipelineLayoutHandle(config.pipelineLayout)
 	{
 		// shaders
@@ -27,6 +28,11 @@ namespace vk
 			shaderStages.push_back(shaderStageCreateInfo);
 		}
 
+		VkPipelineRenderingCreateInfoKHR pipelineRenderingCreateInfo{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
+			.colorAttachmentCount = 1,
+			.pColorAttachmentFormats = &format,
+		};
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo{};
 		pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -41,8 +47,9 @@ namespace vk
 		pipelineCreateInfo.pColorBlendState = &config.colorBlendStateCreateInfo;
 		pipelineCreateInfo.pDynamicState = &config.dynamicStateCreateInfo;
 		pipelineCreateInfo.layout = config.pipelineLayout;
-		pipelineCreateInfo.renderPass = config.renderPass;
-		pipelineCreateInfo.subpass = config.subpasss;
+		pipelineCreateInfo.renderPass = VK_NULL_HANDLE;
+		pipelineCreateInfo.subpass = 0;
+		pipelineCreateInfo.pNext = &pipelineRenderingCreateInfo;
 
 		if (vkCreateGraphicsPipelines(m_device->get(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &m_handle) != VK_SUCCESS)
 		{

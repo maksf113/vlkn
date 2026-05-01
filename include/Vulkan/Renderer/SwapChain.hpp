@@ -1,12 +1,11 @@
 #pragma once
-#include "Vulkan/Renderer/RenderPass.hpp"
-#include "Vulkan/Core/Surface.hpp"
-#include "Vulkan/Core/PhysicalDevice.hpp"
-#include "Vulkan/Core/Device.hpp"
+#include "vulkan/core/Surface.hpp"
+#include "vulkan/core/PhysicalDevice.hpp"
+#include "vulkan/core/Device.hpp"
 
-#include "Window/Window.hpp"
+#include "window/Window.hpp"
 
-#include <Vulkan/vulkan.h>
+#include <vulkan/vulkan.h>
 
 #include <memory>
 #include <vector>
@@ -23,7 +22,6 @@ namespace vk
 		std::shared_ptr<Surface> m_surface;
 		std::vector<VkImage> m_imageHandles;
 		std::vector<VkImageView> m_imageViewHandles;
-		std::vector<VkFramebuffer> m_framebufferHandles;
 
 	public:
 		SwapChain(const std::shared_ptr<Device>& device, const std::shared_ptr<Surface>& surface, const std::shared_ptr<Window>& window);
@@ -32,13 +30,12 @@ namespace vk
 		SwapChain(SwapChain&& other) noexcept;
 		SwapChain& operator=(SwapChain&& other) noexcept;
 		~SwapChain();
-		void createFramebuffers(const std::unique_ptr<RenderPass>& renderPass);
-		void recreate(const std::shared_ptr<Window>& window, const std::unique_ptr<RenderPass>& renderPass);
+		void recreate(const std::shared_ptr<Window>& window);
 		VkSwapchainKHR get() const;
 		operator VkSwapchainKHR() const;
 		VkFormat getImageFormat() const;
-
-		const std::vector<VkFramebuffer>& getFramebufferHandles() const;
+		std::vector<VkImageView> getImageViewHandles() const;
+		std::vector<VkImage> getImageHandles() const;
 		VkExtent2D getExtent() const;
 
 	private:
@@ -46,7 +43,6 @@ namespace vk
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, const std::shared_ptr<Window>& window);
 		void createImageViews();
-		void clearFramebuffers();
 		void clearImageViews();
 
 	};
