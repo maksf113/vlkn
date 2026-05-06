@@ -1,37 +1,36 @@
 #include "vulkan/memory/IndexBuffer.hpp"
+#include "vulkan/memory/Utility.hpp"
 
 namespace vk
 {
-	IndexBuffer::IndexBuffer(const std::vector<uint32_t>& indices, const std::shared_ptr<Device>& device)
+	IndexBuffer::IndexBuffer(const std::vector<uint32_t>& indices, const std::shared_ptr<Device>& device, VkCommandPool commandPool)
 		: m_device(device), m_count(static_cast<uint32_t>(indices.size()))
 	{
-		VkBufferCreateInfo indexBufferCreateInfo{
-			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			.size = sizeof(indices[0]) * indices.size(),
-			.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-			.sharingMode = VK_SHARING_MODE_EXCLUSIVE
-		};
-		check(vkCreateBuffer(*m_device, &indexBufferCreateInfo, nullptr, &m_handle));
-		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(*m_device, m_handle, &memRequirements);
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();	
 
-		VkMemoryAllocateInfo indexMemoryAllocInfo{
-			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-			.allocationSize = memRequirements.size,
-			.memoryTypeIndex = m_device->getPhysicalDevice()->findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
-		};
+		// staging buffer
+		createBuffer(m_device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
 
-		check(vkAllocateMemory(*m_device, &indexMemoryAllocInfo, nullptr, &m_bufferMemory));
-		check(vkBindBufferMemory(*m_device, m_handle, m_bufferMemory, 0));
 		void* data;
-		check(vkMapMemory(*m_device, m_bufferMemory, 0, indexBufferCreateInfo.size, 0, &data));
-		memcpy(data, indices.data(), static_cast<size_t>(indexBufferCreateInfo.size));
-		vkUnmapMemory(*m_device, m_bufferMemory);
+		check(vkMapMemory(*m_device, stagingBufferMemory, 0, bufferSize, 0, &data));
+		memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
+
+		// actual buffer
+		createBuffer(m_device, bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_handle, &m_bufferMemory);
+
+		// copy from staging buffer to index buffer
+		copyBuffer(m_device, commandPool, stagingBuffer, m_handle, bufferSize);
+
+		vkUnmapMemory(*m_device, stagingBufferMemory);
+		deleteBuffer(m_device, stagingBuffer, stagingBufferMemory, nullptr);
 	}
 
 	IndexBuffer::IndexBuffer(IndexBuffer&& other) noexcept :
 		m_handle(other.m_handle), m_bufferMemory(other.m_bufferMemory), m_device(std::move(other.m_device))
 	{
+		if(m_handle != VK_NULL_HANDLE)
 		other.m_handle = VK_NULL_HANDLE;
 		other.m_bufferMemory = VK_NULL_HANDLE;
 	}

@@ -1,4 +1,5 @@
 #pragma once
+#include "vulkan/memory/Utility.hpp"
 #include "vulkan/core/Device.hpp"
 #include "vulkan/Utility.hpp"
 
@@ -22,7 +23,7 @@ namespace vk
 		VkDeviceMemory m_bufferMemory;
 		std::shared_ptr<Device> m_device;
 	public:
-		VertexBuffer(const std::shared_ptr<Device>& device, const std::vector<Vertex>& vertices, VkMemoryPropertyFlagBits flags);
+		VertexBuffer(const std::vector<Vertex>& vertices, VkMemoryPropertyFlagBits flags, const std::shared_ptr<Device>& device, VkCommandPool commandPool);
 		VertexBuffer(const VertexBuffer&) = delete;
 		VertexBuffer& operator=(const VertexBuffer&) = delete;
 		VertexBuffer(VertexBuffer&& other) noexcept;
@@ -30,6 +31,7 @@ namespace vk
 		~VertexBuffer();
 		VkBuffer get() const;
 		operator VkBuffer() const;
+		void updateToNotCoherentMemory();
 
 		void bind(VkCommandBuffer commandBuffer) const;
 	private:
@@ -37,32 +39,28 @@ namespace vk
 	};
 
 	template<typename Vertex>
-	VertexBuffer<Vertex>::VertexBuffer(const std::shared_ptr<Device>& device, const std::vector<Vertex>& vertices, VkMemoryPropertyFlagBits flags) : m_device(device)
+	VertexBuffer<Vertex>::VertexBuffer(const std::vector<Vertex>& vertices, VkMemoryPropertyFlagBits flags, const std::shared_ptr<Device>& device, VkCommandPool commandPool) : m_device(device)
 	{
-		VkBufferCreateInfo bufferCreateInfo{
-			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			.size = sizeof(Vertex) * vertices.size(),
-			.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-			.sharingMode = VK_SHARING_MODE_EXCLUSIVE
-		};
+		// staging buffer
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
 
-		check(vkCreateBuffer(*m_device, &bufferCreateInfo, nullptr, &m_handle));
+		// create staging buffer
+		createBuffer(m_device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, static_cast<VkMemoryPropertyFlagBits>(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &stagingBuffer, &stagingBufferMemory);
 
-		// get memory requirements
-		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(*m_device, m_handle, &memRequirements);
-		VkMemoryAllocateInfo memoryAllocInfo{
-			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-			.allocationSize = memRequirements.size,
-			.memoryTypeIndex = m_device->getPhysicalDevice()->findMemoryType(memRequirements.memoryTypeBits, flags)
-		};
-		// allocate memory, bind memory and copy vertex data
-		check(vkAllocateMemory(*m_device, &memoryAllocInfo, nullptr, &m_bufferMemory));
-		check(vkBindBufferMemory(*m_device, m_handle, m_bufferMemory, 0));
 		void* data;
-		check(vkMapMemory(*m_device, m_bufferMemory, 0, bufferCreateInfo.size, 0, &data));
-		memcpy(data, vertices.data(), static_cast<size_t>(bufferCreateInfo.size));
-		vkUnmapMemory(*m_device, m_bufferMemory);
+		check(vkMapMemory(*m_device, stagingBufferMemory, 0, bufferSize, 0, &data));
+		memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
+
+		// create actual vertex buffer
+		createBuffer(m_device, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, flags, &m_handle, &m_bufferMemory);
+
+		copyBuffer(m_device, commandPool, stagingBuffer, m_handle, bufferSize);
+
+		vkUnmapMemory(*m_device, stagingBufferMemory);
+		vkDestroyBuffer(*m_device, stagingBuffer, nullptr);
+		vkFreeMemory(*m_device, stagingBufferMemory, nullptr);
 	}
 
 	template<typename Vertex>
@@ -123,4 +121,6 @@ namespace vk
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &m_handle, offsets);
 	}
+
+
 }

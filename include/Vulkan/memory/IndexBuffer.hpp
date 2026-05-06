@@ -17,7 +17,7 @@ namespace vk
 		uint32_t m_count;
 		std::shared_ptr<Device> m_device;	
 	public:
-		IndexBuffer(const std::vector<uint32_t>& indices, const std::shared_ptr<Device>& device);
+		IndexBuffer(const std::vector<uint32_t>& indices, const std::shared_ptr<Device>& device, VkCommandPool commandPool);
 		IndexBuffer(const IndexBuffer&) = delete;
 		IndexBuffer& operator=(const IndexBuffer&) = delete;
 		IndexBuffer(IndexBuffer&&) noexcept;

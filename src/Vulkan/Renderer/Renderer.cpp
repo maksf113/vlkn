@@ -11,7 +11,75 @@ namespace vk
 {
 	Renderer::Renderer(const std::shared_ptr<Context>& context) : m_context(context)
 	{
+		m_appStartTime = std::chrono::high_resolution_clock::now();
 		m_swapChain = std::make_unique<vk::SwapChain>(m_context->getDevice(), m_context->getSurface(), m_context->getWindow());
+
+		// descriptor set layout
+		// binding 0: uniform buffer (vertex shader)
+		VkDescriptorSetLayoutBinding uboLayoutBinding{
+			.binding = 0,
+			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+			.pImmutableSamplers = nullptr
+		};
+
+		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo{
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.bindingCount = 1,
+			.pBindings = &uboLayoutBinding
+		};
+
+		vk::check(vkCreateDescriptorSetLayout(*m_context->getDevice(), &descriptorSetLayoutInfo, nullptr, &m_descriptorSetLayout));
+
+		// pipeline layout
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = 1; // uniform buffer layout
+		pipelineLayoutInfo.pSetLayouts = &m_descriptorSetLayout;
+		pipelineLayoutInfo.pushConstantRangeCount = 0;
+		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+		check(vkCreatePipelineLayout(*m_context->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout));
+
+		// pipeline config
+		PipelineConfig pipelineConfig{};
+		Pipeline::defaultPipelineConfig(pipelineConfig);
+		pipelineConfig.addShaderStage(VK_SHADER_STAGE_VERTEX_BIT, "C:/Dev/C++/Vulkan/shaders/triangle.vert.spv");
+		pipelineConfig.addShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, "C:/Dev/C++/Vulkan/shaders/triangle.frag.spv");
+		pipelineConfig.pipelineLayout = m_pipelineLayout;
+
+		pipelineConfig.rasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
+
+		// vertex descriptions
+		VertexBindingDescription<Vertex> vertexBindingDescription(0);
+		VertexAttributeDescription vertexAttributeDescription(0);
+		vertexAttributeDescription.pushAttribute<float>(3); // position	
+		vertexAttributeDescription.pushAttribute<float>(3); // color
+
+
+		pipelineConfig.vertexBindingDescriptions.push_back(vertexBindingDescription.get());
+		pipelineConfig.vertexAttributeDescriptions.push_back(vertexAttributeDescription[0]);
+		pipelineConfig.vertexAttributeDescriptions.push_back(vertexAttributeDescription[1]);
+
+		pipelineConfig.vertexInputStateCreateInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(pipelineConfig.vertexBindingDescriptions.size());
+		pipelineConfig.vertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(pipelineConfig.vertexAttributeDescriptions.size());
+		pipelineConfig.vertexInputStateCreateInfo.pVertexBindingDescriptions = pipelineConfig.vertexBindingDescriptions.data();
+		pipelineConfig.vertexInputStateCreateInfo.pVertexAttributeDescriptions = pipelineConfig.vertexAttributeDescriptions.data();
+
+		m_pipeline = std::make_unique<Pipeline>(m_context, pipelineConfig, m_swapChain->getImageFormat());
+
+		// descriptor pool
+		VkDescriptorPoolSize poolSize{
+			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = MAX_FRAMES_IN_FLIGHT
+		};
+		VkDescriptorPoolCreateInfo descriptorPoolInfo{
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+			.maxSets = MAX_FRAMES_IN_FLIGHT,
+			.poolSizeCount = 1,
+			.pPoolSizes = &poolSize
+		};
+		vk::check(vkCreateDescriptorPool(*m_context->getDevice(), &descriptorPoolInfo, nullptr, &m_descriptorPool));
 
 		// frame data
 		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -48,43 +116,56 @@ namespace vk
 				.flags = VK_FENCE_CREATE_SIGNALED_BIT
 			};
 			vk::check(vkCreateFence(*m_context->getDevice(), &fenceInfo, nullptr, &m_frames[i].inFlightFence));
+
+
+			// uniform buffers
+			m_frames[i].uniformBuffer = std::make_unique<UniformBuffer<UniformData>>(m_context->getDevice());
+			
+			// descriptor sets
+			VkDescriptorSetAllocateInfo allocInfoDS{
+				.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+				.descriptorPool = m_descriptorPool,
+				.descriptorSetCount = 1,
+				.pSetLayouts = &m_descriptorSetLayout
+			};
+
+			check(vkAllocateDescriptorSets(*m_context->getDevice(), &allocInfoDS, &m_frames[i].descriptorSet));
+
+			VkDescriptorBufferInfo bufferInfo{
+				.buffer = *m_frames[i].uniformBuffer,
+				.offset = 0,
+				.range = sizeof(UniformData)
+			};
+
+			VkWriteDescriptorSet descriptorWrite{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = m_frames[i].descriptorSet,
+				.dstBinding = 0,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.pBufferInfo = &bufferInfo
+			};
+			vkUpdateDescriptorSets(*m_context->getDevice(), 1, &descriptorWrite, 0, nullptr);
 		}
+		
+		// command pool and command buffer for buffer uploads
+		VkCommandPoolCreateInfo commandPoolCreateInfo{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+			.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+			.queueFamilyIndex = m_context->getDevice()->getPhysicalDevice()->getQueueFamilyIndices().graphicsFamily.value()
+		};
+		VkCommandPool bufferUploadCommandPool;
+		vk::check(vkCreateCommandPool(*m_context->getDevice(), &commandPoolCreateInfo, nullptr, &bufferUploadCommandPool));
 
-		// pipeline layout
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 0;
-		pipelineLayoutInfo.pushConstantRangeCount = 0;
-		pipelineLayoutInfo.pSetLayouts = nullptr;
-		pipelineLayoutInfo.pPushConstantRanges = nullptr;
-		check(vkCreatePipelineLayout(*m_context->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout));
-
-		// pipeline config
-		PipelineConfig pipelineConfig{};
-		Pipeline::defaultPipelineConfig(pipelineConfig);
-		pipelineConfig.addShaderStage(VK_SHADER_STAGE_VERTEX_BIT, "C:/Dev/C++/Vulkan/shaders/triangle.vert.spv");
-		pipelineConfig.addShaderStage(VK_SHADER_STAGE_FRAGMENT_BIT, "C:/Dev/C++/Vulkan/shaders/triangle.frag.spv");
-		pipelineConfig.pipelineLayout = m_pipelineLayout;
-
-		pipelineConfig.rasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
-
-		// vertex descriptors
-		VertexBindingDescription<Vertex> vertexBindingDescription(0);
-		VertexAttributeDescription vertexAttributeDescription(0);
-		vertexAttributeDescription.pushAttribute<float>(3); // position	
-		vertexAttributeDescription.pushAttribute<float>(3); // color
-
-
-		pipelineConfig.vertexBindingDescriptions.push_back(vertexBindingDescription.get());
-		pipelineConfig.vertexAttributeDescriptions.push_back(vertexAttributeDescription[0]);
-		pipelineConfig.vertexAttributeDescriptions.push_back(vertexAttributeDescription[1]);
-
-		pipelineConfig.vertexInputStateCreateInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(pipelineConfig.vertexBindingDescriptions.size());
-		pipelineConfig.vertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(pipelineConfig.vertexAttributeDescriptions.size());
-		pipelineConfig.vertexInputStateCreateInfo.pVertexBindingDescriptions = pipelineConfig.vertexBindingDescriptions.data();
-		pipelineConfig.vertexInputStateCreateInfo.pVertexAttributeDescriptions = pipelineConfig.vertexAttributeDescriptions.data();
-
-		m_pipeline = std::make_unique<Pipeline>(m_context, pipelineConfig, m_swapChain->getImageFormat());
+		VkCommandBufferAllocateInfo commandBufferAllocInfo{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+			.commandPool = bufferUploadCommandPool,
+			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			.commandBufferCount = 1
+		};
+		VkCommandBuffer bufferUploadCommandBuffer;
+		vk::check(vkAllocateCommandBuffers(*m_context->getDevice(), &commandBufferAllocInfo, &bufferUploadCommandBuffer));
 
 		// vertex buffer
 		m_vertices = {
@@ -94,39 +175,57 @@ namespace vk
 			{-0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f },
 			{ 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f }
 		};
-		m_vertexBuffer = std::make_unique<VertexBuffer<Vertex>>(m_context->getDevice(), m_vertices, static_cast<VkMemoryPropertyFlagBits>(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
+		m_vertexBuffer = std::make_unique<VertexBuffer<Vertex>>(m_vertices, static_cast<VkMemoryPropertyFlagBits>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), m_context->getDevice(), bufferUploadCommandPool);
 
 		// index buffer
 		m_indices = { 0, 1, 2, 0, 1, 3 };
 
-		m_indexBuffer = std::make_unique<IndexBuffer>(m_indices, m_context->getDevice());
+		m_indexBuffer = std::make_unique<IndexBuffer>(m_indices, m_context->getDevice(), bufferUploadCommandPool);
+
+		// destroy pool for buffers
+		vkDestroyCommandPool(*m_context->getDevice(), bufferUploadCommandPool, nullptr);
 	}
 
-	Renderer::Renderer(Renderer&& other) noexcept :
-		m_context(std::move(other.m_context)), m_swapChain(std::move(other.m_swapChain)), m_currentFrameIndex(other.m_currentFrameIndex)
+	Renderer::Renderer(Renderer&& other) noexcept
+		: m_context(std::move(other.m_context)),
+		m_swapChain(std::move(other.m_swapChain)),
+		m_currentFrameIndex(other.m_currentFrameIndex)
 	{
-		std::copy(std::begin(other.m_frames), std::end(other.m_frames), std::begin(m_frames));
-		std::fill(std::begin(other.m_frames), std::end(other.m_frames), FrameData{});
+		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
+		{
+			m_frames[i] = std::move(other.m_frames[i]);
+
+			other.m_frames[i] = FrameData{};
+		}
 	}
 
-	Renderer& Renderer::operator=(Renderer&& other) noexcept
+	Renderer& Renderer::operator=(Renderer&& other) noexcept 
 	{
-		if(m_pipelineLayout != VK_NULL_HANDLE)
+		if (this != &other) 
 		{
-			vkDestroyPipelineLayout(*m_context->getDevice(), m_pipelineLayout, nullptr);
+			if (m_pipelineLayout != VK_NULL_HANDLE) 
+			{
+				vkDestroyPipelineLayout(*m_context->getDevice(), m_pipelineLayout, nullptr);
+			}
+
+			for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
+			{
+				vkDestroyFence(*m_context->getDevice(), m_frames[i].inFlightFence, nullptr);
+				vkDestroySemaphore(*m_context->getDevice(), m_frames[i].renderFinishedSemaphore, nullptr);
+				vkDestroySemaphore(*m_context->getDevice(), m_frames[i].imageAvailableSemaphore, nullptr);
+				vkDestroyCommandPool(*m_context->getDevice(), m_frames[i].commandPool, nullptr);
+			}
+
+			m_context = std::move(other.m_context);
+			m_swapChain = std::move(other.m_swapChain);
+			m_currentFrameIndex = other.m_currentFrameIndex;
+
+			for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
+			{
+				m_frames[i] = std::move(other.m_frames[i]);
+				other.m_frames[i] = FrameData{};
+			}
 		}
-		for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			vkDestroyFence(*m_context->getDevice(), m_frames[i].inFlightFence, nullptr);
-			vkDestroySemaphore(*m_context->getDevice(), m_frames[i].renderFinishedSemaphore, nullptr);
-			vkDestroySemaphore(*m_context->getDevice(), m_frames[i].imageAvailableSemaphore, nullptr);
-			vkDestroyCommandPool(*m_context->getDevice(), m_frames[i].commandPool, nullptr);
-		}
-		m_context = std::move(other.m_context);
-		m_swapChain = std::move(other.m_swapChain);
-		m_currentFrameIndex = other.m_currentFrameIndex;
-		std::copy(std::begin(other.m_frames), std::end(other.m_frames), std::begin(m_frames));
-		std::fill(std::begin(other.m_frames), std::end(other.m_frames), FrameData{});
 		return *this;
 	}
 
@@ -152,9 +251,20 @@ namespace vk
 	{
 		// frame data
 		FrameData& frame = m_frames[m_currentFrameIndex];
+		frame.startTime = std::chrono::high_resolution_clock::now();
 
 		// Wait for the render fence
 		vk::check(vkWaitForFences(*m_context->getDevice(), 1, &frame.inFlightFence, VK_TRUE, UINT64_MAX));
+
+		// update uniform buffer
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float timeSinceStart = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - m_appStartTime).count();
+
+		UniformData ubo{};
+		ubo.time = timeSinceStart;
+
+		// push updated data to uniform buffer
+		frame.uniformBuffer->update(ubo);
 
 		// Acquire swapchain image and signled the swapchain image semaphore
 		uint32_t imageIndex;
@@ -241,6 +351,7 @@ namespace vk
 
 		// next frame index
 		m_currentFrameIndex = (m_currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+		frame.endTime = std::chrono::high_resolution_clock::now();
 	}
 
 	void Renderer::recordDynamicCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
@@ -334,6 +445,9 @@ namespace vk
 
 		// bind index buffer
 		m_indexBuffer->bind(commandBuffer);
+
+		// bind descriptor sets
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_frames[m_currentFrameIndex].descriptorSet, 0, nullptr);
 
 		// draw call
 		vkCmdDrawIndexed(commandBuffer, m_indexBuffer->count(), 1, 0, 0, 0);
