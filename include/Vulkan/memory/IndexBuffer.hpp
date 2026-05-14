@@ -25,7 +25,7 @@ namespace vk
 		~IndexBuffer();
 
 		void bind(VkCommandBuffer commandBuffer) const;
-		uint32_t count() const;
+		uint32_t getCount() const;
 		VkBuffer get() const;
 	};
 }

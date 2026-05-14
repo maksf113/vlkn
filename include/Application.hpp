@@ -14,9 +14,10 @@ private:
 	std::string m_name;
 	GlfwInstance m_glfwInstance;
 	std::shared_ptr<Window> m_window;
+	InputManager m_inputManager;
 
 	std::shared_ptr<vk::Context> m_vkContext;
-	std::unique_ptr<vk::Renderer> m_renderer;
+	std::shared_ptr<vk::Renderer> m_renderer;
 	
 public:
 	Application(std::string_view name, uint16_t width, uint16_t height);

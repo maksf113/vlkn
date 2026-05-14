@@ -7,7 +7,7 @@
 
 namespace vk
 {
-	Pipeline::Pipeline(const std::shared_ptr<Context>& context, const PipelineConfig& config, VkFormat format) :
+	Pipeline::Pipeline(const std::shared_ptr<Context>& context, const PipelineConfig& config, VkFormat colorFormat, VkFormat depthFormat) :
 		m_device(context->getDevice()), m_pipelineLayoutHandle(config.pipelineLayout)
 	{
 		// shaders
@@ -31,7 +31,8 @@ namespace vk
 		VkPipelineRenderingCreateInfoKHR pipelineRenderingCreateInfo{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
 			.colorAttachmentCount = 1,
-			.pColorAttachmentFormats = &format,
+			.pColorAttachmentFormats = &colorFormat,
+			.depthAttachmentFormat = depthFormat
 		};
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo{};

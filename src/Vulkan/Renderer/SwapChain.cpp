@@ -65,6 +65,7 @@ namespace vk
 		vkGetSwapchainImagesKHR(*m_device, m_handle, &imageCount, m_imageHandles.data());
 
 		createImageViews();
+		createDepthResources();
 	}
 
 	SwapChain::SwapChain(SwapChain&& other) noexcept :
@@ -142,6 +143,21 @@ namespace vk
 		return m_extent;
 	}
 
+	VkFormat SwapChain::getDepthFormat() const 
+	{ 
+		return m_depthFormat; 
+	}
+	VkImageView SwapChain::getDepthImageView() const 
+	{
+		return m_depthImageView;
+	}
+	VkImage SwapChain::getDepthImage() const
+	{
+		return m_depthImage;
+	}
+
+
+
 	VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 	{
 		for (const auto& availableFormat : availableFormats)
@@ -218,10 +234,90 @@ namespace vk
 
 	void SwapChain::clearImageViews()
 	{
+		if(m_depthImageView != VK_NULL_HANDLE)
+		{
+			vkDestroyImageView(*m_device, m_depthImageView, nullptr);
+			vkDestroyImage(*m_device, m_depthImage, nullptr);
+			vkFreeMemory(*m_device, m_depthImageMemory, nullptr);
+			m_depthImageView = VK_NULL_HANDLE;
+			m_depthImage = VK_NULL_HANDLE;
+			m_depthImageMemory = VK_NULL_HANDLE;
+		}
 		for (const auto& imageView : m_imageViewHandles)
 		{
 			vkDestroyImageView(*m_device, imageView, nullptr);
 		}
 		m_imageViewHandles.clear();
+	}
+
+	void SwapChain::createDepthResources()
+	{
+		m_depthFormat = m_device->getPhysicalDevice()->findSupportedFormat(
+			{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+		);
+		
+		VkImageCreateInfo depthImageInfo{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			.flags = 0,
+			.imageType = VK_IMAGE_TYPE_2D,
+			.format = m_depthFormat,
+			.extent = { m_extent.width, m_extent.height, 1 },
+			.mipLevels = 1,
+			.arrayLayers = 1,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.tiling = VK_IMAGE_TILING_OPTIMAL,
+			.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+			.queueFamilyIndexCount = 0,
+			.pQueueFamilyIndices = nullptr,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED 
+		};
+			
+			if(vkCreateImage(*m_device, &depthImageInfo, nullptr, &m_depthImage) != VK_SUCCESS)
+			{
+				throw std::runtime_error("Failed to create depth image");
+			}
+
+			VkMemoryRequirements memRequirements;
+			vkGetImageMemoryRequirements(*m_device, m_depthImage, &memRequirements);
+
+			VkMemoryAllocateInfo allocInfo{
+				.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+				.allocationSize = memRequirements.size,
+				.memoryTypeIndex = m_device->getPhysicalDevice()->findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+			};
+
+			if(vkAllocateMemory(*m_device, &allocInfo, nullptr, &m_depthImageMemory) != VK_SUCCESS)
+			{
+				throw std::runtime_error("Failed to allocate depth image memory");
+			}
+			vkBindImageMemory(*m_device, m_depthImage, m_depthImageMemory, 0);	
+
+			VkImageViewCreateInfo depthImageViewInfo{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+				.image = m_depthImage,
+				.viewType = VK_IMAGE_VIEW_TYPE_2D,
+				.format = m_depthFormat,
+				//.components = {
+				//	.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+				//	.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+				//	.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+				//	.a = VK_COMPONENT_SWIZZLE_IDENTITY
+				//},
+				.subresourceRange = {
+					.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+					.baseMipLevel = 0,
+					.levelCount = 1,
+					.baseArrayLayer = 0,
+					.layerCount = 1
+				}
+			};
+			if(vkCreateImageView(*m_device, &depthImageViewInfo, nullptr, &m_depthImageView) != VK_SUCCESS)
+			{
+				throw std::runtime_error("Failed to create depth image view");
+			}
+		
 	}
 }

@@ -22,6 +22,8 @@ namespace vk
 		~VertexAttributeDescription() = default;
 		template<typename T>
 		void pushAttribute(uint32_t n);
+		template<typename T>
+		void pushAttribute(uint32_t n, VkFormat format);
 		VkVertexInputAttributeDescription operator[](size_t index) const;
 
 	private:
@@ -45,12 +47,26 @@ namespace vk
 		m_attributeDescriptions.push_back(attributeDescription);
 	}
 
+	template<typename T>
+	inline void VertexAttributeDescription::pushAttribute(uint32_t n, VkFormat format)
+	{
+		VkVertexInputAttributeDescription attributeDescription{
+			.location = static_cast<uint32_t>(m_attributeDescriptions.size()),
+			.binding = m_binding,
+			.format = format,
+			.offset = m_currentStride
+		};
+		m_currentStride += sizeof(T) * n; // to do: sizeOfFormat(VkFormat format)
+		m_attributeDescriptions.push_back(attributeDescription);
+	}
+
 	VkVertexInputAttributeDescription VertexAttributeDescription::operator[](size_t index) const
 	{
 		if (index >= m_attributeDescriptions.size())
 			throw std::out_of_range("Attribute index out of range");
 		return m_attributeDescriptions[index];
 	}
+
 
 	template<typename T>
 	inline VkFormat VertexAttributeDescription::getFormatForType(uint32_t n)

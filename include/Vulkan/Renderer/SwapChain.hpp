@@ -23,6 +23,11 @@ namespace vk
 		std::vector<VkImage> m_imageHandles;
 		std::vector<VkImageView> m_imageViewHandles;
 
+		VkFormat m_depthFormat;
+		VkImage m_depthImage = VK_NULL_HANDLE;
+		VkDeviceMemory m_depthImageMemory = VK_NULL_HANDLE;
+		VkImageView m_depthImageView = VK_NULL_HANDLE;
+
 	public:
 		SwapChain(const std::shared_ptr<Device>& device, const std::shared_ptr<Surface>& surface, const std::shared_ptr<Window>& window);
 		SwapChain(const SwapChain&) = delete;
@@ -38,12 +43,16 @@ namespace vk
 		std::vector<VkImage> getImageHandles() const;
 		VkExtent2D getExtent() const;
 
+		VkFormat getDepthFormat() const;
+		VkImageView getDepthImageView() const;
+		VkImage getDepthImage() const;
+
 	private:
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, const std::shared_ptr<Window>& window);
 		void createImageViews();
 		void clearImageViews();
-
+		void createDepthResources();
 	};
 }

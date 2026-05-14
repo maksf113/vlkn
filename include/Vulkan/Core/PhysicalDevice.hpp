@@ -50,6 +50,7 @@ namespace vk
 		const VkPhysicalDeviceFeatures& getFeatures() const;
 		SwapChainSupportDetails querySwapChainSupport(const std::shared_ptr<Surface>& surface) const;
 		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+		VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) const;
 
 	private:
 		void pickPhysicalDevice(const std::shared_ptr<Instance>& instance, const std::shared_ptr<Surface>& surface);

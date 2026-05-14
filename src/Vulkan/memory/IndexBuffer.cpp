@@ -1,4 +1,4 @@
-#include "vulkan/memory/IndexBuffer.hpp"
+ #include "vulkan/memory/IndexBuffer.hpp"
 #include "vulkan/memory/Utility.hpp"
 
 namespace vk
@@ -70,7 +70,7 @@ namespace vk
 		vkCmdBindIndexBuffer(commandBuffer, m_handle, 0, VK_INDEX_TYPE_UINT32);
 	}
 
-	uint32_t IndexBuffer::count() const
+	uint32_t IndexBuffer::getCount() const
 	{
 		return m_count;
 	}

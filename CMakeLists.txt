@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Add executable from source files
 file(GLOB_RECURSE CPP_SOURCES "src/*.cpp")    # C++ sources
 file(GLOB_RECURSE HEADER_FILES "include/*.hpp")  # Header files
-#file(GLOB_RECURSE SHADER_FILES "src/grpahics/shaders/*.vert" "src/graphics/shaders/*.frag") # shaders
+
 add_executable(${PROJECT_NAME} ${CPP_SOURCES} ${HEADER_FILES})
 
 # Find and link GLM, GLFW, Vulkan
@@ -19,7 +19,10 @@ find_package(Vulkan REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(Freetype REQUIRED)
-
+# Find path to header only tinygltf
+find_path(TINYGLTF_INCLUDE_DIRS, "tiny_gltf.h" 
+    PATHS "${CMAKE_CURRENT_SOURCE_DIR}/external/tinygltf"
+)
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE 
@@ -33,6 +36,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE 
     "include"
+    ${TINYGLTF_INCLUDE_DIRS}
 )
 
 # Add a definition to toggle validation

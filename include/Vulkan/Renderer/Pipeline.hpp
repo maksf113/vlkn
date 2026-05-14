@@ -54,7 +54,7 @@ namespace vk
 		std::shared_ptr<Device> m_device;
 
 	public:
-		Pipeline(const std::shared_ptr<Context>& context, const PipelineConfig& config, VkFormat format);
+		Pipeline(const std::shared_ptr<Context>& context, const PipelineConfig& config, VkFormat colorFormat, VkFormat depthFormat);
 		Pipeline(const Pipeline&) = delete;
 		Pipeline& operator=(const Pipeline&) = delete;
 		Pipeline(Pipeline&& other) noexcept;

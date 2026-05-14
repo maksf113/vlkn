@@ -9,11 +9,12 @@
 
 namespace vk
 {
-	struct Vertex
+	struct Vertex3f3f
 	{
 		float position[3];
 		float color[3];
 	};
+
 
 	template <typename Vertex>
 	class VertexBuffer
@@ -31,7 +32,6 @@ namespace vk
 		~VertexBuffer();
 		VkBuffer get() const;
 		operator VkBuffer() const;
-		void updateToNotCoherentMemory();
 
 		void bind(VkCommandBuffer commandBuffer) const;
 	private:

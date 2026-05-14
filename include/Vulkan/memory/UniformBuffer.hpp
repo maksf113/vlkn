@@ -5,12 +5,18 @@
 
 #include <Vulkan/vulkan.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <memory>
 
 namespace vk 
 {
     struct UniformData
     {
+        glm::mat4 projection;
+        glm::mat4 view;
+        glm::mat4 model;
         float time;
 	};
 

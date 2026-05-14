@@ -5,7 +5,10 @@
 
 #include "window/GlfwInstance.hpp"
 
-#include "vulkan/vk_enum_string_helper.h"
+#include <vulkan/vk_enum_string_helper.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 namespace vk
 {
@@ -54,19 +57,22 @@ namespace vk
 		VertexBindingDescription<Vertex> vertexBindingDescription(0);
 		VertexAttributeDescription vertexAttributeDescription(0);
 		vertexAttributeDescription.pushAttribute<float>(3); // position	
-		vertexAttributeDescription.pushAttribute<float>(3); // color
-
+		vertexAttributeDescription.pushAttribute<float>(3); // normal
+		vertexAttributeDescription.pushAttribute<float>(3); // tangent
+		vertexAttributeDescription.pushAttribute<float>(2); // uv
 
 		pipelineConfig.vertexBindingDescriptions.push_back(vertexBindingDescription.get());
 		pipelineConfig.vertexAttributeDescriptions.push_back(vertexAttributeDescription[0]);
 		pipelineConfig.vertexAttributeDescriptions.push_back(vertexAttributeDescription[1]);
+		pipelineConfig.vertexAttributeDescriptions.push_back(vertexAttributeDescription[2]);
+		pipelineConfig.vertexAttributeDescriptions.push_back(vertexAttributeDescription[3]);
 
 		pipelineConfig.vertexInputStateCreateInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(pipelineConfig.vertexBindingDescriptions.size());
 		pipelineConfig.vertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(pipelineConfig.vertexAttributeDescriptions.size());
 		pipelineConfig.vertexInputStateCreateInfo.pVertexBindingDescriptions = pipelineConfig.vertexBindingDescriptions.data();
 		pipelineConfig.vertexInputStateCreateInfo.pVertexAttributeDescriptions = pipelineConfig.vertexAttributeDescriptions.data();
 
-		m_pipeline = std::make_unique<Pipeline>(m_context, pipelineConfig, m_swapChain->getImageFormat());
+		m_pipeline = std::make_unique<Pipeline>(m_context, pipelineConfig, m_swapChain->getImageFormat(), m_swapChain->getDepthFormat());
 
 		// descriptor pool
 		VkDescriptorPoolSize poolSize{
@@ -167,20 +173,8 @@ namespace vk
 		VkCommandBuffer bufferUploadCommandBuffer;
 		vk::check(vkAllocateCommandBuffers(*m_context->getDevice(), &commandBufferAllocInfo, &bufferUploadCommandBuffer));
 
-		// vertex buffer
-		m_vertices = {
-			// positions         // colors
-			{-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f },
-			{ 0.5f,  0.5f, 0.0f, 0.0f, 1.0f, 0.0f },
-			{-0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f },
-			{ 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f }
-		};
-		m_vertexBuffer = std::make_unique<VertexBuffer<Vertex>>(m_vertices, static_cast<VkMemoryPropertyFlagBits>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), m_context->getDevice(), bufferUploadCommandPool);
-
-		// index buffer
-		m_indices = { 0, 1, 2, 0, 1, 3 };
-
-		m_indexBuffer = std::make_unique<IndexBuffer>(m_indices, m_context->getDevice(), bufferUploadCommandPool);
+		// model loading
+		m_meshes = GltfLoader::loadFromFile("C:/Dev/C++/Vulkan/meshes/Suzanne.glb", m_context->getDevice(), bufferUploadCommandPool);
 
 		// destroy pool for buffers
 		vkDestroyCommandPool(*m_context->getDevice(), bufferUploadCommandPool, nullptr);
@@ -260,7 +254,12 @@ namespace vk
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float timeSinceStart = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - m_appStartTime).count();
 
+		m_camera.setAspectRatio(m_context->getWindow()->getWidth(), m_context->getWindow()->getHeight());
+		m_camera.updateVectors3D();
 		UniformData ubo{};
+		ubo.model = glm::mat4(1.0f);
+		ubo.view = m_camera.view();
+		ubo.projection = m_camera.projection();
 		ubo.time = timeSinceStart;
 
 		// push updated data to uniform buffer
@@ -382,7 +381,7 @@ namespace vk
 		};
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-		VkImageSubresourceRange sub{
+		VkImageSubresourceRange colorSub{
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.baseMipLevel = 0,
 			.levelCount = 1,
@@ -390,7 +389,27 @@ namespace vk
 			.layerCount = 1
 		};
 
-		VkImageMemoryBarrier2 initialBarrier{
+		// aspect mask with or without stencil bit depending on depth format
+		VkImageAspectFlags depthAspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		if (m_swapChain->getDepthFormat() == VK_FORMAT_D32_SFLOAT_S8_UINT ||
+			m_swapChain->getDepthFormat() == VK_FORMAT_D24_UNORM_S8_UINT)
+		{
+			depthAspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		VkImageSubresourceRange depthSub{
+			.aspectMask = depthAspectMask,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		};
+
+		// initial barriers for depth and color attachments
+		VkImageMemoryBarrier2 initialBarriers[2] = {}; 
+		
+		// color attachment barrier
+		initialBarriers[0] = {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 			.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
 			.srcAccessMask = VK_ACCESS_2_NONE,
@@ -399,19 +418,32 @@ namespace vk
 			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			.image = m_swapChain->getImageHandles()[imageIndex],
-			.subresourceRange = sub
+			.subresourceRange = colorSub
 		};
 
+		// depth attachment barrier
+		initialBarriers[1] = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+			.srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+			.srcAccessMask = VK_ACCESS_2_NONE,
+			.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+			.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			.image = m_swapChain->getDepthImage(),
+			.subresourceRange = depthSub
+		};
 
 
 		VkDependencyInfo dependencyInfo{
 			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-			.imageMemoryBarrierCount = 1,
-			.pImageMemoryBarriers = &initialBarrier
+			.imageMemoryBarrierCount = 2,
+			.pImageMemoryBarriers = initialBarriers	
 		};
 
 		vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 
+		// color attachment info
 		VkRenderingAttachmentInfo colorAttachmentInfo{
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
 			.imageView = m_swapChain->getImageViewHandles()[imageIndex],
@@ -419,6 +451,16 @@ namespace vk
 			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 			.clearValue = VkClearValue{.color = {{0.01f, 0.01f, 0.03f, 1.0f}} },
+		};
+
+		// depth attachment info
+		VkRenderingAttachmentInfo depthAttachmentInfo{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = m_swapChain->getDepthImageView(),
+			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.clearValue = VkClearValue{.depthStencil = {1.0f, 0} },
 		};
 
 		VkRenderingInfo renderingInfo{
@@ -430,7 +472,7 @@ namespace vk
 			.layerCount = 1,
 			.colorAttachmentCount = 1,
 			.pColorAttachments = &colorAttachmentInfo,
-			.pDepthAttachment = nullptr,
+			.pDepthAttachment = &depthAttachmentInfo,
 			.pStencilAttachment = nullptr
 		};
 
@@ -439,18 +481,16 @@ namespace vk
 
 		// bind pipeline
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->get());
-		
-		// bind vertex buffer
-		m_vertexBuffer->bind(commandBuffer);
-
-		// bind index buffer
-		m_indexBuffer->bind(commandBuffer);
 
 		// bind descriptor sets
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_frames[m_currentFrameIndex].descriptorSet, 0, nullptr);
 
-		// draw call
-		vkCmdDrawIndexed(commandBuffer, m_indexBuffer->count(), 1, 0, 0, 0);
+		// meshes
+		for (const auto& mesh : m_meshes)
+		{
+			mesh->bind(commandBuffer);
+			vkCmdDrawIndexed(commandBuffer, mesh->getIndexCount(), 1, 0, 0, 0);
+		}
 
 		vkCmdEndRendering(commandBuffer);
 
@@ -500,5 +540,14 @@ namespace vk
 		m_swapChain->recreate(m_context->getWindow());
 	}
 
+	void Renderer::processInput(const InputManager& im)
+	{
+		m_camera.processInput(im);
+	}
 
+	bool Renderer::mouseWheelEvent(double x, double y)
+	{
+		m_camera.mouseWheelEvent(x, y);
+		return true;
+	}
 }
